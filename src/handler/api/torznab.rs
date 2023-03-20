@@ -1,7 +1,12 @@
 use axum::extract::Query;
-use std::collections::HashMap;
 
-pub async fn handler(Query(params): Query<HashMap<String, String>>) -> &'static str {
+#[derive(Debug, serde::Deserialize)]
+#[serde(tag = "t")]
+pub enum QueryParams {
+    Caps,
+}
+
+pub async fn handler(Query(params): Query<QueryParams>) -> &'static str {
     println!("GET /api/torznab params={params:?}");
     "Hello, World!"
 }
