@@ -200,7 +200,7 @@ impl IndexerBitsearch {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait::async_trait(?Send)]
 impl Indexer for IndexerBitsearch {
     fn name(&self) -> &'static str {
         INDEXER_NAME
