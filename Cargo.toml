@@ -7,16 +7,18 @@ edition = "2021"
 
 [dependencies]
 async-trait = { version = "0.1" }
+axum = { version = "0.6" }
 bytesize = { version = "1.2" }
 futures = { version = "0.3", default-features = false, features = [
     "std",
     "alloc",
 ] }
 once_cell = { version = "1.17" }
-tokio = { version = "1.0", features = ["full"] }
 reqwest = { version = "0.11" }
 scraper = { version = "0.15" }
+tokio = { version = "1.0", features = ["full"] }
 tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = { version = "2.3" }
 urlencoding = { version = "2.1" }
 
@@ -24,4 +26,3 @@ urlencoding = { version = "2.1" }
 mockito = { version = "1.0" }
 serde_json = { version = "1.0" }
 tokio = { version = "1.21", features = ["full"] }
-tracing-subscriber = { version = "0.3" }
