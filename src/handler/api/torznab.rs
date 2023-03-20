@@ -1,12 +1,21 @@
 use axum::extract::Query;
+use std::borrow::Cow;
 
 #[derive(Debug, serde::Deserialize)]
-#[serde(tag = "t")]
+#[serde(tag = "t", rename_all = "lowercase")]
 pub enum QueryParams {
     Caps,
 }
 
-pub async fn handler(Query(params): Query<QueryParams>) -> &'static str {
-    println!("GET /api/torznab params={params:?}");
-    "Hello, World!"
+impl QueryParams {
+    fn handle(&self) -> Cow<'static, str> {
+        match self {
+            Self::Caps => Cow::Borrowed(include_str!("./capabilities.xml")),
+        }
+    }
+}
+
+pub async fn handler(Query(params): Query<QueryParams>) -> Cow<'static, str> {
+    tracing::debug!("GET /api/torznab params={params:?}");
+    params.handle()
 }
