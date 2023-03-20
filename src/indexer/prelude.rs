@@ -12,10 +12,20 @@ pub struct SearchResult {
     pub errors: Vec<SearchResultError>,
 }
 
+impl From<SearchResultError> for SearchResult {
+    fn from(value: SearchResultError) -> Self {
+        Self {
+            errors: vec![value],
+            ..Default::default()
+        }
+    }
+}
+
 impl SearchResult {
-    pub fn merge(&mut self, other: SearchResult) {
+    pub fn merge(mut self, other: SearchResult) -> Self {
         self.entries.extend(other.entries);
         self.errors.extend(other.errors);
+        self
     }
 }
 
