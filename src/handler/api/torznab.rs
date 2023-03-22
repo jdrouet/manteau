@@ -102,7 +102,7 @@ fn write_item(result: &mut String, item: IndexerEntry, category: Category) {
     result.push_str(r#"<torznab:attr name="downloadvolumefactor" value="0" />"#);
     result.push_str(r#"<torznab:attr name="uploadvolumefactor" value="1" />"#);
     result.push_str(&format!(
-        "<torznab:attr name\"magneturl\" value={:?} />",
+        "<torznab:attr name=\"magneturl\" value={:?} />",
         item.magnet
     ));
     result.push_str(&format!(
