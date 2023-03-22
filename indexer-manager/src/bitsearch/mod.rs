@@ -1,4 +1,6 @@
-use super::prelude::{Category, IndexerEntry, IndexerError, IndexerResult};
+use crate::prelude::{
+    Category, Indexer, IndexerEntry, IndexerError, IndexerErrorReason, IndexerResult,
+};
 use once_cell::sync::Lazy;
 use reqwest::IntoUrl;
 use scraper::{ElementRef, Html, Selector};
@@ -19,6 +21,28 @@ static SEARCH_ROW_MAGNET_SELECTOR: Lazy<Selector> =
 const BASE_URL: &str = "https://bitsearch.to";
 const INDEXER_NAME: &str = "bitsearch";
 
+async fn fetch_page<U: IntoUrl + ToString>(url: U) -> Result<String, IndexerError> {
+    let url_str = url.to_string();
+    let req = reqwest::get(url).await.map_err(|err| {
+        IndexerError::new(
+            INDEXER_NAME,
+            IndexerErrorReason::UnableToQuery {
+                url: url_str.clone(),
+                cause: err.to_string(),
+            },
+        )
+    })?;
+    req.text().await.map_err(|err| {
+        IndexerError::new(
+            INDEXER_NAME,
+            IndexerErrorReason::UnableToRead {
+                url: url_str,
+                cause: err.to_string(),
+            },
+        )
+    })
+}
+
 fn sanitize_name(input: &str) -> String {
     input
         .split(&['\n', ' ', '\t'])
@@ -30,7 +54,7 @@ fn sanitize_name(input: &str) -> String {
 fn parse_link_element<'a>(elt: &'a ElementRef) -> Result<ElementRef<'a>, IndexerError> {
     elt.select(&SEARCH_ROW_NAME_SELECTOR)
         .next()
-        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to find item name".into()))
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryNameNotFound))
 }
 
 fn parse_link<'a>(elt: &'a ElementRef) -> Result<(String, &'a str), IndexerError> {
@@ -40,7 +64,7 @@ fn parse_link<'a>(elt: &'a ElementRef) -> Result<(String, &'a str), IndexerError
     let path = link
         .value()
         .attr("href")
-        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to find item link".into()))?;
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryLinkNotFound))?;
     Ok((name, path))
 }
 
@@ -48,28 +72,32 @@ fn parse_size(elt: &ElementRef) -> Result<bytesize::ByteSize, IndexerError> {
     let value = elt
         .select(&SEARCH_ROW_SIZE_SELECTOR)
         .next()
-        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to find item size".into()))?;
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryLinkNotFound))?;
     value
         .text()
         .collect::<String>()
         .trim()
         .parse::<bytesize::ByteSize>()
-        .map_err(|err| IndexerError::new(INDEXER_NAME, format!("unable to parse size: {err}")))
+        .map_err(|cause| {
+            IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntrySizeInvalid { cause })
+        })
 }
 
 fn parse_seeders(elt: &ElementRef) -> Result<u32, IndexerError> {
     let value = elt
         .select(&SEARCH_ROW_SEEDER_SELECTOR)
         .next()
-        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to find item size".into()))?;
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntrySeedersNotFound))?;
     value
         .text()
         .collect::<String>()
         .trim()
         .parse::<u32>()
-        .map_err(|err| {
-            IndexerError::new(INDEXER_NAME, "unable to parse seeders".into())
-                .with_cause(Box::new(err))
+        .map_err(|cause| {
+            IndexerError::new(
+                INDEXER_NAME,
+                IndexerErrorReason::EntrySeedersInvalid { cause },
+            )
         })
 }
 
@@ -77,15 +105,19 @@ fn parse_leechers(elt: &ElementRef) -> Result<u32, IndexerError> {
     let value = elt
         .select(&SEARCH_ROW_LEECHER_SELECTOR)
         .next()
-        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to find item size".into()))?;
+        .ok_or_else(|| {
+            IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryLeechersNotFound)
+        })?;
     value
         .text()
         .collect::<String>()
         .trim()
         .parse::<u32>()
-        .map_err(|err| {
-            IndexerError::new(INDEXER_NAME, "unable to parse leechers".into())
-                .with_cause(Box::new(err))
+        .map_err(|cause| {
+            IndexerError::new(
+                INDEXER_NAME,
+                IndexerErrorReason::EntryLeechersInvalid { cause },
+            )
         })
 }
 
@@ -93,12 +125,12 @@ fn parse_magnet(elt: &ElementRef) -> Result<String, IndexerError> {
     let value = elt
         .select(&SEARCH_ROW_MAGNET_SELECTOR)
         .next()
-        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to find magnet".into()))?;
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryMagnetNotFound))?;
     value
         .value()
         .attr("href")
         .map(String::from)
-        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to read magnet".into()))
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryMagnetNotFound))
 }
 
 fn parse_row_result(base_url: &str, elt: ElementRef) -> Result<IndexerEntry, IndexerError> {
@@ -151,37 +183,23 @@ impl IndexerBitsearch {
             base_url: base_url.into(),
         }
     }
-
-    async fn fetch_page<U: IntoUrl + ToString>(&self, url: U) -> Result<String, IndexerError> {
-        let url_str = url.to_string();
-        let req = reqwest::get(url).await.map_err(|err| {
-            IndexerError::new(INDEXER_NAME, format!("unable to query {url_str:?}"))
-                .with_cause(Box::new(err))
-        })?;
-        req.text().await.map_err(|err| {
-            IndexerError::new(
-                INDEXER_NAME,
-                format!("unable to read result from {url_str:?}"),
-            )
-            .with_cause(Box::new(err))
-        })
-    }
 }
 
-impl IndexerBitsearch {
-    pub async fn search(&self, query: &str) -> IndexerResult {
+#[async_trait::async_trait]
+impl Indexer for IndexerBitsearch {
+    async fn search(&self, query: &str) -> IndexerResult {
         let url = format!("{}/search", self.base_url);
         let url = match Url::parse_with_params(&url, &[("q", query)]) {
             Ok(value) => value,
-            Err(error) => {
-                return IndexerResult::from(
-                    IndexerError::new(INDEXER_NAME, "unable to build search url".to_string())
-                        .with_cause(Box::new(error)),
-                );
+            Err(cause) => {
+                return IndexerResult::from(IndexerError::new(
+                    INDEXER_NAME,
+                    IndexerErrorReason::UnableToBuildUrl { cause },
+                ));
             }
         };
 
-        let html = match self.fetch_page(url).await {
+        let html = match fetch_page(url).await {
             Ok(value) => value,
             Err(error) => return IndexerResult::from(error),
         };
@@ -189,7 +207,7 @@ impl IndexerBitsearch {
         parse_search_result(&self.base_url, html.as_str())
     }
 
-    pub async fn feed(&self, category: Category) -> IndexerResult {
+    async fn feed(&self, category: Category) -> IndexerResult {
         let path = match category {
             Category::Audio | Category::Music => "/music",
             Category::Movie => "/libraries",
@@ -198,7 +216,7 @@ impl IndexerBitsearch {
         };
         let url = format!("{}{path}", self.base_url);
 
-        let html = match self.fetch_page(url).await {
+        let html = match fetch_page(url).await {
             Ok(value) => value,
             Err(error) => return IndexerResult::from(error),
         };
@@ -210,11 +228,10 @@ impl IndexerBitsearch {
 #[cfg(test)]
 mod tests {
     use super::IndexerBitsearch;
+    use crate::prelude::Indexer;
 
     #[tokio::test]
     async fn basic_search() {
-        crate::init_logs();
-
         let mut server = mockito::Server::new_async().await;
         let indexer = IndexerBitsearch::new(server.url().as_str());
 
@@ -223,7 +240,7 @@ mod tests {
             .with_status(200)
             .with_header("content-type", "text/html")
             .with_body(include_str!(
-                "../../../../asset/indexer-bitsearch-search-page.html"
+                "../../asset/indexer-bitsearch-search-page.html"
             ))
             .create_async()
             .await;

@@ -2,7 +2,6 @@ use axum::{routing, Extension, Router};
 
 mod entry;
 mod handler;
-mod service;
 
 fn init_logs() {
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -32,7 +31,7 @@ fn address() -> std::net::SocketAddr {
 async fn main() {
     init_logs();
 
-    let indexers = crate::service::indexer::IndexerManager::default();
+    let indexers = manteau_indexer_manager::IndexerManager::default();
 
     let app = Router::new()
         .route("/api/torznab", routing::get(handler::api::torznab::handler))

@@ -3,33 +3,28 @@ name = "manteau"
 version = "0.1.0"
 edition = "2021"
 
+[workspace]
+members = ["./indexer-manager"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-trait = { version = "0.1" }
+manteau-indexer-manager = { path = "./indexer-manager" }
+
 axum = { version = "0.6" }
-bytesize = { version = "1.2" }
-futures = { version = "0.3", default-features = false, features = [
-    "std",
-    "alloc",
-] }
-once_cell = { version = "1.17" }
 quick-xml = { version = "0.28", features = ["serialize"] }
+once_cell = { version = "1.17" }
 reqwest = { version = "0.11", default-features = false, features = [
     "json",
     "tokio-rustls",
     "rustls-tls",
 ] }
-scraper = { version = "0.15" }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1.0", features = ["full"] }
 tower-http = { version = "0.3", features = ["cors", "fs", "trace"] }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-url = { version = "2.3" }
-urlencoding = { version = "2.1" }
 
 [dev-dependencies]
 mockito = { version = "1.0" }
 serde_json = { version = "1.0" }
-tokio = { version = "1.21", features = ["full"] }
