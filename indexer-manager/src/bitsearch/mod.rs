@@ -15,6 +15,8 @@ static SEARCH_ROW_SEEDER_SELECTOR: Lazy<Selector> =
     Lazy::new(|| Selector::parse(".stats div:nth-child(3)").unwrap());
 static SEARCH_ROW_LEECHER_SELECTOR: Lazy<Selector> =
     Lazy::new(|| Selector::parse(".stats div:nth-child(4)").unwrap());
+static SEARCH_ROW_DATE_SELECTOR: Lazy<Selector> =
+    Lazy::new(|| Selector::parse(".stats img[alt=\"Date\"]").unwrap());
 static SEARCH_ROW_MAGNET_SELECTOR: Lazy<Selector> =
     Lazy::new(|| Selector::parse("a.dl-magnet").unwrap());
 
@@ -121,6 +123,22 @@ fn parse_leechers(elt: &ElementRef) -> Result<u32, IndexerError> {
         })
 }
 
+fn parse_date(elt: &ElementRef) -> Result<chrono::NaiveDate, IndexerError> {
+    let value = elt
+        .select(&SEARCH_ROW_DATE_SELECTOR)
+        .next()
+        .and_then(|child| child.parent())
+        .and_then(|child| child.children().find_map(|c| c.value().as_text()))
+        .map(|text| text.to_string())
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryDateNotFound))?;
+    chrono::NaiveDate::parse_from_str(&value, "%b %e, %Y").map_err(|err| {
+        IndexerError::new(
+            INDEXER_NAME,
+            IndexerErrorReason::EntryDateInvalid { cause: err.kind() },
+        )
+    })
+}
+
 fn parse_magnet(elt: &ElementRef) -> Result<String, IndexerError> {
     let value = elt
         .select(&SEARCH_ROW_MAGNET_SELECTOR)
@@ -138,11 +156,13 @@ fn parse_row_result(base_url: &str, elt: ElementRef) -> Result<IndexerEntry, Ind
     let size = parse_size(&elt)?;
     let seeders = parse_seeders(&elt)?;
     let leechers = parse_leechers(&elt)?;
+    let date = parse_date(&elt)?;
     let magnet = parse_magnet(&elt)?;
 
     Ok(IndexerEntry {
         name,
         url: format!("{base_url}{path}"),
+        date,
         size,
         seeders,
         leechers,

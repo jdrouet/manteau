@@ -14,9 +14,13 @@ static NAME_SELECTOR: Lazy<Selector> =
 static SEEDS_SELECTOR: Lazy<Selector> = Lazy::new(|| Selector::parse("td.seeds").unwrap());
 static LEECHERS_SELECTOR: Lazy<Selector> = Lazy::new(|| Selector::parse("td.leeches").unwrap());
 static SIZE_SELECTOR: Lazy<Selector> = Lazy::new(|| Selector::parse("td.size").unwrap());
+static DATE_SELECTOR: Lazy<Selector> = Lazy::new(|| Selector::parse("td.coll-date").unwrap());
 static RESULT_LINK: Lazy<Selector> = Lazy::new(|| {
     Selector::parse("main.container div.row div.page-content div.box-info.torrent-detail-page div.no-top-radius div ul li a").unwrap()
 });
+
+static DATE_REGEX: Lazy<regex::Regex> =
+    Lazy::new(|| regex::Regex::new(r"^([A-Za-z]+)\.\s+(\d+)[A-Za-z]+\s+'(\d+)$").unwrap());
 
 async fn fetch_page(base_url: &str, path: &str) -> Result<String, IndexerError> {
     let url = format!("{base_url}{path}");
@@ -101,6 +105,26 @@ fn parse_leechers(elt: &ElementRef) -> Result<u32, IndexerError> {
         })
 }
 
+fn parse_date_value(input: &str) -> Result<chrono::NaiveDate, chrono::format::ParseErrorKind> {
+    let cap = DATE_REGEX
+        .captures(input)
+        .ok_or_else(|| chrono::format::ParseErrorKind::Invalid)?;
+    // May. 16th '12 => 12 May 16
+    let value = format!("{} {} {}", &cap[3], &cap[1], &cap[2]);
+    chrono::NaiveDate::parse_from_str(&value, "%y %b %e").map_err(|err| err.kind())
+}
+
+fn parse_date(elt: &ElementRef) -> Result<chrono::NaiveDate, IndexerError> {
+    let value = elt
+        .select(&DATE_SELECTOR)
+        .next()
+        .and_then(|t| t.text().next())
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryDateNotFound))?;
+    parse_date_value(value).map_err(|cause| {
+        IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryDateInvalid { cause })
+    })
+}
+
 fn parse_size(elt: &ElementRef) -> Result<bytesize::ByteSize, IndexerError> {
     let value = elt
         .select(&SIZE_SELECTOR)
@@ -122,11 +146,12 @@ fn parse_list_row<'a>(base_url: &str, elt: ElementRef<'a>) -> Result<IndexerEntr
     let seeders = parse_seeders(&elt)?;
     let leechers = parse_leechers(&elt)?;
     let size = parse_size(&elt)?;
-    // let magnet = fetch_magnet(base_url, link).await?;
+    let date = parse_date(&elt)?;
 
     Ok(IndexerEntry {
         name,
         url: format!("{base_url}{link}"),
+        date,
         size,
         seeders,
         leechers,
@@ -227,8 +252,16 @@ impl Indexer for Indexer1337x {
 
 #[cfg(test)]
 mod tests {
-    use super::Indexer1337x;
+    use super::{parse_date_value, Indexer1337x};
     use crate::prelude::Indexer;
+
+    #[test]
+    fn should_parse_date_value() {
+        assert!(parse_date_value("Feb. 1st '03").is_ok());
+        assert!(parse_date_value("Nov. 2nd '05").is_ok());
+        assert!(parse_date_value("Mar. 3rd '11").is_ok());
+        assert!(parse_date_value("Jul. 18th '20").is_ok());
+    }
 
     #[tokio::test]
     async fn basic_search() {

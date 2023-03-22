@@ -77,15 +77,33 @@ pub enum IndexerErrorReason {
     EntryNameNotFound,
     EntryLinkNotFound,
     EntrySizeNotFound,
-    EntrySizeInvalid { cause: String },
+    EntrySizeInvalid {
+        cause: String,
+    },
     EntrySeedersNotFound,
-    EntrySeedersInvalid { cause: ParseIntError },
+    EntrySeedersInvalid {
+        cause: ParseIntError,
+    },
     EntryLeechersNotFound,
-    EntryLeechersInvalid { cause: ParseIntError },
+    EntryLeechersInvalid {
+        cause: ParseIntError,
+    },
+    EntryDateNotFound,
+    EntryDateInvalid {
+        cause: chrono::format::ParseErrorKind,
+    },
     EntryMagnetNotFound,
-    UnableToQuery { url: String, cause: String },
-    UnableToRead { url: String, cause: String },
-    UnableToBuildUrl { cause: ParseError },
+    UnableToQuery {
+        url: String,
+        cause: String,
+    },
+    UnableToRead {
+        url: String,
+        cause: String,
+    },
+    UnableToBuildUrl {
+        cause: ParseError,
+    },
 }
 
 impl IndexerError {
@@ -120,6 +138,7 @@ impl IndexerError {
 pub struct IndexerEntry {
     pub name: String,
     pub url: String,
+    pub date: chrono::NaiveDate,
     pub size: ByteSize,
     pub seeders: u32,
     pub leechers: u32,
