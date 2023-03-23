@@ -16,6 +16,16 @@ pub struct TorznabConfig {
     pub base_url: String,
 }
 
+impl Default for TorznabConfig {
+    fn default() -> Self {
+        Self {
+            name: Self::default_name(),
+            description: Self::default_description(),
+            base_url: Self::default_base_url(),
+        }
+    }
+}
+
 impl TorznabConfig {
     fn default_name() -> Cow<'static, str> {
         Cow::Borrowed(env!("CARGO_PKG_NAME"))
@@ -53,11 +63,7 @@ pub struct TorznabBuilder {
 #[cfg(test)]
 impl Default for TorznabBuilder {
     fn default() -> Self {
-        Self {
-            name: TorznabConfig::default_name(),
-            description: TorznabConfig::default_description(),
-            base_url: TorznabConfig::default_base_url(),
-        }
+        TorznabConfig::default().build()
     }
 }
 
