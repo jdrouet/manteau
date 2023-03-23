@@ -92,3 +92,14 @@ fn write_categories(writer: &mut Writer<Vec<u8>>) -> quick_xml::Result<()> {
         })?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn expected_result() {
+        assert_eq!(
+            super::build_capabilities(),
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><caps><server>manteau</server><limits default=\"100\" max=\"100\"/><searching><search available=\"yes\" supportedParams=\"q\"/><tv-search available=\"yes\" supportedParams=\"q,season,ep\"/><movie-search available=\"yes\" supportedParams=\"q\"/><music-search available=\"yes\" supportedParams=\"q\"/><book-search available=\"yes\" supportedParams=\"q\"/></searching><categories><category id=\"2000\" name=\"Movies\"/><category id=\"3000\" name=\"Audio\"/><category id=\"5000\" name=\"TV\"/><category id=\"7000\" name=\"Books\"/></categories></caps>"
+        );
+    }
+}
