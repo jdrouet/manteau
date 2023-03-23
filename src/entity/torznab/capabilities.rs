@@ -1,168 +1,94 @@
 use once_cell::sync::Lazy;
+use quick_xml::{events::BytesText, writer::Writer};
 
-pub static CAPABILITIES: Lazy<String> = Lazy::new(|| {
+pub static CAPABILITIES: Lazy<String> = Lazy::new(build_capabilities);
+
+fn build_capabilities() -> String {
     tracing::debug!("building capabilities");
-    let mut builder = String::from(super::DOM);
-    Capabilities::default().push_xml(&mut builder);
-    builder
-});
-
-#[derive(Debug, Default, PartialEq)]
-pub struct Capabilities {
-    server: Server,
-    limits: Limits,
-    searching: Searching,
-    categories: Categories,
+    let mut writer = quick_xml::writer::Writer::new(Vec::new());
+    write_caps(&mut writer).expect("build capabilities xml");
+    let inner = writer.into_inner();
+    let result = String::from_utf8_lossy(&inner);
+    format!("{}{result}", super::DOM)
 }
 
-impl Capabilities {
-    pub fn push_xml(&self, builder: &mut String) {
-        builder.push_str("<caps>");
-        self.server.push_xml(builder);
-        self.limits.push_xml(builder);
-        self.searching.push_xml(builder);
-        self.categories.push_xml(builder);
-        builder.push_str("</caps>");
-    }
+fn write_caps(writer: &mut Writer<Vec<u8>>) -> quick_xml::Result<()> {
+    writer.create_element("caps").write_inner_content(|w| {
+        write_server(w)?;
+        write_limits(w)?;
+        write_searching(w)?;
+        write_categories(w)?;
+        Ok(())
+    })?;
+    Ok(())
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Server {
-    title: &'static str,
+fn write_server(writer: &mut Writer<Vec<u8>>) -> quick_xml::Result<()> {
+    writer
+        .create_element("server")
+        .write_text_content(BytesText::new(env!("CARGO_PKG_NAME")))?;
+    Ok(())
 }
 
-impl Default for Server {
-    fn default() -> Self {
-        Self {
-            title: env!("CARGO_PKG_NAME"),
-        }
-    }
+fn write_limits(writer: &mut Writer<Vec<u8>>) -> quick_xml::Result<()> {
+    writer
+        .create_element("limits")
+        .with_attribute(("default", "100"))
+        .with_attribute(("max", "100"))
+        .write_empty()?;
+    Ok(())
 }
 
-impl Server {
-    pub fn push_xml(&self, builder: &mut String) {
-        builder.push_str("<server>");
-        builder.push_str(self.title);
-        builder.push_str("</server>");
-    }
+fn write_searching(writer: &mut Writer<Vec<u8>>) -> quick_xml::Result<()> {
+    writer
+        .create_element("searching")
+        .write_inner_content(|w| {
+            w.create_element("search")
+                .with_attribute(("available", "yes"))
+                .with_attribute(("supportedParams", "q"))
+                .write_empty()?;
+            w.create_element("tv-search")
+                .with_attribute(("available", "yes"))
+                .with_attribute(("supportedParams", "q,season,ep"))
+                .write_empty()?;
+            w.create_element("movie-search")
+                .with_attribute(("available", "yes"))
+                .with_attribute(("supportedParams", "q"))
+                .write_empty()?;
+            w.create_element("music-search")
+                .with_attribute(("available", "yes"))
+                .with_attribute(("supportedParams", "q"))
+                .write_empty()?;
+            w.create_element("book-search")
+                .with_attribute(("available", "yes"))
+                .with_attribute(("supportedParams", "q"))
+                .write_empty()?;
+            Ok(())
+        })?;
+    Ok(())
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Limits {
-    default: u32,
-    max: u32,
-}
-
-impl Default for Limits {
-    fn default() -> Self {
-        Self {
-            default: 100,
-            max: 100,
-        }
-    }
-}
-
-impl Limits {
-    pub fn push_xml(&self, builder: &mut String) {
-        builder.push_str(&format!(
-            "<limits default=\"{}\" max=\"{}\" />",
-            self.default, self.max
-        ));
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Searching([Search; 5]);
-
-impl Default for Searching {
-    fn default() -> Self {
-        Self([
-            Search::new("search", "yes", "q"),
-            Search::new("tv-search", "yes", "q,season,ep"),
-            Search::new("movie-search", "yes", "q"),
-            Search::new("music-search", "yes", "q"),
-            Search::new("book-search", "yes", "q"),
-        ])
-    }
-}
-
-impl Searching {
-    pub fn push_xml(&self, builder: &mut String) {
-        builder.push_str("<searching>");
-        self.0.iter().for_each(|s| s.push_xml(builder));
-        builder.push_str("</searching>");
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Search {
-    tag: &'static str,
-    available: &'static str,
-    supported_params: &'static str,
-}
-
-impl Search {
-    pub const fn new(
-        tag: &'static str,
-        available: &'static str,
-        supported_params: &'static str,
-    ) -> Self {
-        Self {
-            tag,
-            available,
-            supported_params,
-        }
-    }
-
-    pub fn push_xml(&self, builder: &mut String) {
-        builder.push_str(&format!(
-            r#"<{} available={:?} supportedParams={:?} />"#,
-            self.tag, self.available, self.supported_params
-        ));
-    }
-}
-
-#[derive(Debug, PartialEq, serde::Serialize)]
-#[serde(rename = "categories")]
-pub struct Categories([Category; 4]);
-
-impl Default for Categories {
-    fn default() -> Self {
-        Self([
-            Category::new(2000, "Movies"),
-            Category::new(3000, "Audio"),
-            Category::new(5000, "TV"),
-            Category::new(7000, "Books"),
-        ])
-    }
-}
-
-impl Categories {
-    pub fn push_xml(&self, builder: &mut String) {
-        builder.push_str("<categories>");
-        self.0.iter().for_each(|c| c.push_xml(builder));
-        builder.push_str("</categories>");
-    }
-}
-
-#[derive(Debug, PartialEq, serde::Serialize)]
-#[serde(rename = "category")]
-pub struct Category {
-    #[serde(rename = "@id")]
-    id: u32,
-    #[serde(rename = "@name")]
-    name: &'static str,
-}
-
-impl Category {
-    pub const fn new(id: u32, name: &'static str) -> Self {
-        Self { id, name }
-    }
-
-    pub fn push_xml(&self, builder: &mut String) {
-        builder.push_str(&format!(
-            "<category id=\"{}\" name={:?} />",
-            self.id, self.name
-        ));
-    }
+fn write_categories(writer: &mut Writer<Vec<u8>>) -> quick_xml::Result<()> {
+    writer
+        .create_element("categories")
+        .write_inner_content(|w| {
+            w.create_element("category")
+                .with_attribute(("id", "2000"))
+                .with_attribute(("name", "Movies"))
+                .write_empty()?;
+            w.create_element("category")
+                .with_attribute(("id", "3000"))
+                .with_attribute(("name", "Audio"))
+                .write_empty()?;
+            w.create_element("category")
+                .with_attribute(("id", "5000"))
+                .with_attribute(("name", "TV"))
+                .write_empty()?;
+            w.create_element("category")
+                .with_attribute(("id", "7000"))
+                .with_attribute(("name", "Books"))
+                .write_empty()?;
+            Ok(())
+        })?;
+    Ok(())
 }

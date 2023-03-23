@@ -90,15 +90,6 @@ fn handle_caps() -> ApplicationRssXml {
     ))
 }
 
-fn write_date(date: chrono::NaiveDate) -> String {
-    let result = date
-        .and_hms_opt(0, 0, 0)
-        .unwrap()
-        .and_local_timezone(chrono::Utc)
-        .unwrap();
-    result.to_rfc2822()
-}
-
 fn write_item(
     writer: &mut quick_xml::writer::Writer<Vec<u8>>,
     item: IndexerEntry,
@@ -114,7 +105,7 @@ fn write_item(
         w.create_element("comments")
             .write_text_content(BytesText::new(&item.url))?;
         w.create_element("pubDate")
-            .write_text_content(BytesText::new(&write_date(item.date)))?;
+            .write_text_content(BytesText::new(&item.date.to_rfc2822()))?;
         w.create_element("size")
             .write_text_content(BytesText::new(&item.size.as_u64().to_string()))?;
         w.create_element("description").write_empty()?;

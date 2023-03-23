@@ -1,8 +1,11 @@
 use super::prelude::{
     Category, Indexer, IndexerEntry, IndexerError, IndexerErrorReason, IndexerResult,
 };
+use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 use scraper::{ElementRef, Html, Selector};
+
+mod date;
 
 const BASE_URL: &str = "https://1337x.to";
 const INDEXER_NAME: &str = "1337x";
@@ -18,9 +21,6 @@ static DATE_SELECTOR: Lazy<Selector> = Lazy::new(|| Selector::parse("td.coll-dat
 static RESULT_LINK: Lazy<Selector> = Lazy::new(|| {
     Selector::parse("main.container div.row div.page-content div.box-info.torrent-detail-page div.no-top-radius div ul li a").unwrap()
 });
-
-static DATE_REGEX: Lazy<regex::Regex> =
-    Lazy::new(|| regex::Regex::new(r"^([A-Za-z]+)\.\s+(\d+)[A-Za-z]+\s+'(\d+)$").unwrap());
 
 async fn fetch_page(base_url: &str, path: &str) -> Result<String, IndexerError> {
     let url = format!("{base_url}{path}");
@@ -105,22 +105,13 @@ fn parse_leechers(elt: &ElementRef) -> Result<u32, IndexerError> {
         })
 }
 
-fn parse_date_value(input: &str) -> Result<chrono::NaiveDate, chrono::format::ParseErrorKind> {
-    let cap = DATE_REGEX
-        .captures(input)
-        .ok_or_else(|| chrono::format::ParseErrorKind::Invalid)?;
-    // May. 16th '12 => 12 May 16
-    let value = format!("{} {} {}", &cap[3], &cap[1], &cap[2]);
-    chrono::NaiveDate::parse_from_str(&value, "%y %b %e").map_err(|err| err.kind())
-}
-
-fn parse_date(elt: &ElementRef) -> Result<chrono::NaiveDate, IndexerError> {
+fn parse_date(elt: &ElementRef) -> Result<DateTime<Utc>, IndexerError> {
     let value = elt
         .select(&DATE_SELECTOR)
         .next()
         .and_then(|t| t.text().next())
         .ok_or_else(|| IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryDateNotFound))?;
-    parse_date_value(value).map_err(|cause| {
+    date::parse(value).map_err(|cause| {
         IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryDateInvalid { cause })
     })
 }
@@ -252,17 +243,8 @@ impl Indexer for Indexer1337x {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_date_value, Indexer1337x};
+    use super::Indexer1337x;
     use crate::prelude::Indexer;
-
-    #[test]
-    fn should_parse_date_value() {
-        assert!(parse_date_value("Feb. 1st '03").is_ok());
-        assert!(parse_date_value("Nov. 2nd '05").is_ok());
-        assert!(parse_date_value("Mar. 3rd '11").is_ok());
-        assert!(parse_date_value("Jul. 18th '20").is_ok());
-    }
-
     #[tokio::test]
     async fn basic_search() {
         let mut server = mockito::Server::new_async().await;
