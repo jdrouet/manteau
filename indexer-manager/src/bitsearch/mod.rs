@@ -63,7 +63,7 @@ fn parse_link_element<'a>(elt: &'a ElementRef) -> Result<ElementRef<'a>, Indexer
 }
 
 fn parse_link<'a>(elt: &'a ElementRef) -> Result<(String, &'a str), IndexerError> {
-    let link = parse_link_element(&elt)?;
+    let link = parse_link_element(elt)?;
     let name = link.text().collect::<String>();
     let name = sanitize_name(&name);
     let path = link
