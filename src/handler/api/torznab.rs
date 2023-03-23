@@ -5,6 +5,7 @@ use manteau_indexer_manager::prelude::{Category, IndexerEntry};
 use manteau_indexer_manager::IndexerManager;
 use std::borrow::Cow;
 use std::str::FromStr;
+use std::sync::Arc;
 
 fn deserialize_category<'de, D>(deserializer: D) -> Result<Category, D::Error>
 where
@@ -66,7 +67,7 @@ pub enum QueryParams {
 }
 
 impl QueryParams {
-    async fn handle(&self, indexer: IndexerManager) -> ApplicationRssXml {
+    async fn handle(&self, indexer: Arc<IndexerManager>) -> ApplicationRssXml {
         match self {
             Self::Caps => handle_caps(),
             Self::Music => handle_feed(indexer, Category::Music).await,
@@ -92,7 +93,7 @@ fn write_response(category: Category, entries: Vec<IndexerEntry>) -> Application
     ApplicationRssXml(Cow::Owned(result))
 }
 
-async fn handle_feed(indexer: IndexerManager, category: Category) -> ApplicationRssXml {
+async fn handle_feed(indexer: Arc<IndexerManager>, category: Category) -> ApplicationRssXml {
     let result = indexer.feed(category).await;
     if !result.errors.is_empty() {
         tracing::debug!("had the following errors: {:?}", result.errors);
@@ -101,7 +102,7 @@ async fn handle_feed(indexer: IndexerManager, category: Category) -> Application
 }
 
 async fn handle_search(
-    indexer: IndexerManager,
+    indexer: Arc<IndexerManager>,
     category: Category,
     query: &str,
 ) -> ApplicationRssXml {
@@ -114,7 +115,7 @@ async fn handle_search(
 }
 
 pub async fn handler(
-    Extension(indexer): Extension<IndexerManager>,
+    Extension(indexer): Extension<Arc<IndexerManager>>,
     Query(params): Query<QueryParams>,
 ) -> ApplicationRssXml {
     tracing::debug!("GET /api/torznab params={params:?}");
@@ -141,6 +142,7 @@ mod integration_tests {
     use manteau_indexer_manager::bytesize;
     use manteau_indexer_manager::prelude::{Category, IndexerEntry, IndexerResult};
     use manteau_indexer_manager::IndexerManager;
+    use std::sync::Arc;
     use tower::ServiceExt;
 
     #[derive(Debug, Clone, Default)]
@@ -163,7 +165,7 @@ mod integration_tests {
         crate::init_logs();
 
         let indexer = IndexerManager::with_indexer(MockIndexer::default());
-        let app = crate::router(indexer);
+        let app = crate::router(Arc::new(indexer));
 
         let response = app
             .oneshot(
@@ -200,7 +202,7 @@ mod integration_tests {
         });
 
         let indexer = IndexerManager::with_indexer(mock);
-        let app = crate::router(indexer);
+        let app = crate::router(Arc::new(indexer));
 
         let response = app
             .oneshot(
@@ -231,7 +233,7 @@ mod integration_tests {
         crate::init_logs();
 
         let indexer = IndexerManager::with_indexer(MockIndexer::default());
-        let app = crate::router(indexer);
+        let app = crate::router(Arc::new(indexer));
 
         let response = app
             .oneshot(
