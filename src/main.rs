@@ -1,5 +1,6 @@
 use axum::{routing, Extension, Router};
 
+mod config;
 mod entity;
 mod handler;
 
@@ -38,7 +39,9 @@ fn router(indexer: manteau_indexer_manager::IndexerManager) -> Router {
 async fn main() {
     init_logs();
 
-    let indexer = manteau_indexer_manager::IndexerManager::default();
+    let config = crate::config::Config::from_env().expect("couldn't load configuration");
+    let indexer = config.indexers.build();
+
     let app = router(indexer);
 
     let addr = address();

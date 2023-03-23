@@ -1,5 +1,6 @@
 use crate::prelude::{
-    Category, Indexer, IndexerEntry, IndexerError, IndexerErrorReason, IndexerResult,
+    Category, Indexer, IndexerBuilder, IndexerEntry, IndexerError, IndexerErrorReason,
+    IndexerResult,
 };
 use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
@@ -186,8 +187,31 @@ fn parse_search_result(base_url: &str, html: &str) -> IndexerResult {
     results
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct IndexerBitsearchConfig {
+    #[serde(default = "IndexerBitsearchConfig::default_base_url")]
+    pub base_url: String,
+}
+
+impl IndexerBitsearchConfig {
+    fn default_base_url() -> String {
+        BASE_URL.into()
+    }
+}
+
+impl IndexerBuilder for IndexerBitsearchConfig {
+    fn build(self, name: String) -> Box<dyn Indexer + Send + Sync + 'static> {
+        tracing::info!("building bitsearch indexer named {name:?}");
+        Box::new(IndexerBitsearch {
+            name,
+            base_url: self.base_url,
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct IndexerBitsearch {
+    name: String,
     base_url: String,
 }
 
@@ -200,6 +224,7 @@ impl Default for IndexerBitsearch {
 impl IndexerBitsearch {
     pub fn new<S: Into<String>>(base_url: S) -> Self {
         Self {
+            name: "bitsearch".into(),
             base_url: base_url.into(),
         }
     }
@@ -208,6 +233,7 @@ impl IndexerBitsearch {
 #[async_trait::async_trait]
 impl Indexer for IndexerBitsearch {
     async fn search(&self, query: &str) -> IndexerResult {
+        tracing::debug!("{} searching {query:?}", self.name);
         let url = format!("{}/search", self.base_url);
         let url = match Url::parse_with_params(&url, &[("q", query)]) {
             Ok(value) => value,
@@ -228,6 +254,7 @@ impl Indexer for IndexerBitsearch {
     }
 
     async fn feed(&self, category: Category) -> IndexerResult {
+        tracing::debug!("{} fetching feed for {category:?}", self.name);
         let path = match category {
             Category::Audio | Category::Music => "/music",
             Category::Movie => "/libraries",
