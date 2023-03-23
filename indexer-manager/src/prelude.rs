@@ -49,6 +49,15 @@ pub struct IndexerResult {
     pub errors: Vec<IndexerError>,
 }
 
+impl From<Vec<IndexerEntry>> for IndexerResult {
+    fn from(entries: Vec<IndexerEntry>) -> Self {
+        Self {
+            entries,
+            errors: Vec::new(),
+        }
+    }
+}
+
 impl From<IndexerError> for IndexerResult {
     fn from(value: IndexerError) -> Self {
         Self {

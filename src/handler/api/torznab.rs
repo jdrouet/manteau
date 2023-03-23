@@ -108,6 +108,13 @@ fn write_item(
             .write_text_content(BytesText::new(&item.date.to_rfc2822()))?;
         w.create_element("size")
             .write_text_content(BytesText::new(&item.size.as_u64().to_string()))?;
+        w.create_element("link")
+            .write_text_content(BytesText::new(&item.magnet))?;
+        w.create_element("enclosure")
+            .with_attribute(("url", item.magnet.as_str()))
+            .with_attribute(("length", item.size.as_u64().to_string().as_str()))
+            .with_attribute(("type", "application/x-bittorrent"))
+            .write_empty()?;
         w.create_element("description").write_empty()?;
         w.create_element("category")
             .write_text_content(BytesText::new(&category.kind().to_string()))?;
@@ -231,19 +238,24 @@ mod tests {
 mod integration_tests {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
-    use manteau_indexer_manager::prelude::{Category, IndexerResult};
+    use chrono::Utc;
+    use manteau_indexer_manager::bytesize;
+    use manteau_indexer_manager::prelude::{Category, IndexerEntry, IndexerResult};
+    use manteau_indexer_manager::IndexerManager;
     use tower::ServiceExt;
 
     #[derive(Debug, Clone, Default)]
-    struct MockIndexer;
+    struct MockIndexer {
+        pub entries: Vec<IndexerEntry>,
+    }
 
     #[async_trait::async_trait]
     impl manteau_indexer_manager::prelude::Indexer for MockIndexer {
         async fn search(&self, _query: &str) -> IndexerResult {
-            IndexerResult::default()
+            IndexerResult::from(self.entries.clone())
         }
         async fn feed(&self, _category: Category) -> IndexerResult {
-            IndexerResult::default()
+            IndexerResult::from(self.entries.clone())
         }
     }
 
@@ -251,7 +263,7 @@ mod integration_tests {
     async fn caps_should_return_valid_xml() {
         crate::init_logs();
 
-        let indexer = manteau_indexer_manager::IndexerManager::with_indexer(MockIndexer::default());
+        let indexer = IndexerManager::with_indexer(MockIndexer::default());
         let app = crate::router(indexer);
 
         let response = app
@@ -276,7 +288,19 @@ mod integration_tests {
     async fn music_should_return_valid_xml() {
         crate::init_logs();
 
-        let indexer = manteau_indexer_manager::IndexerManager::with_indexer(MockIndexer::default());
+        let mut mock = MockIndexer::default();
+        mock.entries.push(IndexerEntry {
+            name: "too".to_string(),
+            url: "https://example.com".into(),
+            date: Utc::now(),
+            size: bytesize::ByteSize::mb(120),
+            seeders: 10,
+            leechers: 20,
+            magnet: "magnet-url".into(),
+            origin: "fake",
+        });
+
+        let indexer = IndexerManager::with_indexer(mock);
         let app = crate::router(indexer);
 
         let response = app
@@ -293,15 +317,21 @@ mod integration_tests {
 
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         let body = String::from_utf8_lossy(&body);
-        assert!(body.starts_with(r#"<?xml version="1.0" encoding="UTF-8"?>"#));
-        assert!(body.contains("manteau"));
+
+        let channel = rss::Channel::read_from(body.as_bytes()).unwrap();
+        let items = channel.into_items();
+        assert_eq!(items.len(), 1);
+        for item in items {
+            assert!(item.title().is_some());
+            assert!(item.link().is_some());
+        }
     }
 
     #[tokio::test]
     async fn search_music_should_return_valid_xml() {
         crate::init_logs();
 
-        let indexer = manteau_indexer_manager::IndexerManager::with_indexer(MockIndexer::default());
+        let indexer = IndexerManager::with_indexer(MockIndexer::default());
         let app = crate::router(indexer);
 
         let response = app
@@ -318,7 +348,9 @@ mod integration_tests {
 
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
         let body = String::from_utf8_lossy(&body);
-        assert!(body.starts_with(r#"<?xml version="1.0" encoding="UTF-8"?>"#));
-        assert!(body.contains("manteau"));
+
+        let channel = rss::Channel::read_from(body.as_bytes()).unwrap();
+        let items = channel.into_items();
+        assert_eq!(items.len(), 0);
     }
 }
