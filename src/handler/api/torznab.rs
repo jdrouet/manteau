@@ -150,6 +150,7 @@ fn write_response(category: Category, entries: Vec<IndexerEntry>) -> Application
         .create_element("rss")
         .with_attribute(("version", "2.0"))
         .with_attribute(("xmlns:atom", "http://www.w3.org/2005/Atom"))
+        .with_attribute(("xmlns:torznab", "http://torznab.com/schemas/2015/feed"))
         .write_inner_content(|w| {
             w.create_element("channel").write_inner_content(|w| {
                 w.create_element("atom:link")
