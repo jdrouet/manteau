@@ -818,9 +818,7 @@ dependencies = [
  "manteau-indexer-manager",
  "manteau-indexer-prelude",
  "mockito",
- "once_cell",
  "quick-xml 0.28.1",
- "reqwest",
  "rss",
  "serde",
  "serde_json",
@@ -865,7 +863,6 @@ dependencies = [
  "manteau-indexer-prelude",
  "mockito",
  "once_cell",
- "regex",
  "reqwest",
  "scraper",
  "serde",
@@ -873,7 +870,6 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
- "urlencoding",
 ]
 
 [[package]]
