@@ -281,7 +281,7 @@ mod tests {
             .mock("GET", "/search/how%20i%20met%20your%20mother/1/")
             .with_status(200)
             .with_header("content-type", "text/html")
-            .with_body(include_str!("../../asset/indexer-1337x-search-page.html"))
+            .with_body(include_str!("./search.html"))
             .create_async()
             .await;
 
@@ -293,7 +293,7 @@ mod tests {
             .with_status(200)
             .with_header("content-type", "text/html")
             .with_body(
-                include_str!("../../asset/indexer-1337x-result-page.html")
+                include_str!("./result.html")
                     .replace("%RESULT_NAME%", "How I Met Your Mother - Season 4"),
             )
             .expect(20)

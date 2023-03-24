@@ -286,9 +286,7 @@ mod tests {
             .mock("GET", "/search?q=how+i+met+your+mother")
             .with_status(200)
             .with_header("content-type", "text/html")
-            .with_body(include_str!(
-                "../../asset/indexer-bitsearch-search-page.html"
-            ))
+            .with_body(include_str!("./search.html"))
             .create_async()
             .await;
 
