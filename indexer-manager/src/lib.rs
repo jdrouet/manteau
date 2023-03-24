@@ -1,9 +1,5 @@
-pub use bytesize;
-
 use manteau_indexer_prelude::{Category, Indexer, IndexerBuilder, IndexerResult};
 use std::collections::HashMap;
-
-mod bitsearch;
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(tag = "type")]
@@ -11,11 +7,12 @@ pub enum IndexerConfig {
     #[serde(rename = "1337x")]
     I1337x(manteau_indexer_1337x::Indexer1337xConfig),
     #[serde(rename = "bitsearch")]
-    Bitsearch(bitsearch::IndexerBitsearchConfig),
+    Bitsearch(manteau_indexer_bitsearch::IndexerBitsearchConfig),
 }
 
 impl IndexerBuilder for IndexerConfig {
     fn build(self, name: String) -> Box<dyn Indexer + Send + Sync + 'static> {
+        tracing::info!("building indexer {name:?}");
         match self {
             Self::Bitsearch(inner) => inner.build(name),
             Self::I1337x(inner) => inner.build(name),
@@ -28,6 +25,7 @@ pub struct IndexerManagerConfig(HashMap<String, IndexerConfig>);
 
 impl IndexerManagerConfig {
     pub fn build(self) -> IndexerManager {
+        tracing::info!("building indexer manager");
         IndexerManager {
             indexers: self
                 .0
@@ -48,7 +46,7 @@ impl Default for IndexerManager {
         Self {
             indexers: vec![
                 Box::<manteau_indexer_1337x::Indexer1337x>::default(),
-                Box::<bitsearch::IndexerBitsearch>::default(),
+                Box::<manteau_indexer_bitsearch::IndexerBitsearch>::default(),
             ],
         }
     }
