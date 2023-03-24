@@ -4,13 +4,12 @@ use manteau_indexer_prelude::{Category, Indexer, IndexerBuilder, IndexerResult};
 use std::collections::HashMap;
 
 mod bitsearch;
-mod i1337x;
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(tag = "type")]
 pub enum IndexerConfig {
     #[serde(rename = "1337x")]
-    I1337x(i1337x::Indexer1337xConfig),
+    I1337x(manteau_indexer_1337x::Indexer1337xConfig),
     #[serde(rename = "bitsearch")]
     Bitsearch(bitsearch::IndexerBitsearchConfig),
 }
@@ -48,7 +47,7 @@ impl Default for IndexerManager {
     fn default() -> Self {
         Self {
             indexers: vec![
-                Box::<i1337x::Indexer1337x>::default(),
+                Box::<manteau_indexer_1337x::Indexer1337x>::default(),
                 Box::<bitsearch::IndexerBitsearch>::default(),
             ],
         }
