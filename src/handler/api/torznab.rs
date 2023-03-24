@@ -2,8 +2,8 @@ use crate::service::torznab::TorznabBuilder;
 use axum::extract::Query;
 use axum::response::IntoResponse;
 use axum::Extension;
-use manteau_indexer_manager::prelude::Category;
 use manteau_indexer_manager::IndexerManager;
+use manteau_indexer_prelude::Category;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -186,8 +186,8 @@ mod integration_tests {
     use axum::http::{Request, StatusCode};
     use chrono::Utc;
     use manteau_indexer_manager::bytesize;
-    use manteau_indexer_manager::prelude::{Category, IndexerEntry, IndexerResult};
     use manteau_indexer_manager::IndexerManager;
+    use manteau_indexer_prelude::{Category, IndexerEntry, IndexerResult};
     use std::sync::Arc;
     use tower::ServiceExt;
 
@@ -199,7 +199,7 @@ mod integration_tests {
     }
 
     #[async_trait::async_trait]
-    impl manteau_indexer_manager::prelude::Indexer for MockIndexer {
+    impl manteau_indexer_prelude::Indexer for MockIndexer {
         async fn search(&self, _query: &str) -> IndexerResult {
             IndexerResult::from(self.entries.clone())
         }

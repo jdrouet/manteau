@@ -1,11 +1,10 @@
 pub use bytesize;
 
-use prelude::{IndexerBuilder, IndexerResult};
+use manteau_indexer_prelude::{Category, Indexer, IndexerBuilder, IndexerResult};
 use std::collections::HashMap;
 
 mod bitsearch;
 mod i1337x;
-pub mod prelude;
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(tag = "type")]
@@ -17,7 +16,7 @@ pub enum IndexerConfig {
 }
 
 impl IndexerBuilder for IndexerConfig {
-    fn build(self, name: String) -> Box<dyn prelude::Indexer + Send + Sync + 'static> {
+    fn build(self, name: String) -> Box<dyn Indexer + Send + Sync + 'static> {
         match self {
             Self::Bitsearch(inner) => inner.build(name),
             Self::I1337x(inner) => inner.build(name),
@@ -42,7 +41,7 @@ impl IndexerManagerConfig {
 
 #[derive(Debug)]
 pub struct IndexerManager {
-    indexers: Vec<Box<dyn prelude::Indexer + Send + Sync + 'static>>,
+    indexers: Vec<Box<dyn Indexer + Send + Sync + 'static>>,
 }
 
 impl Default for IndexerManager {
@@ -57,13 +56,13 @@ impl Default for IndexerManager {
 }
 
 impl IndexerManager {
-    pub fn with_indexer<I: prelude::Indexer + Send + Sync + 'static>(indexer: I) -> Self {
+    pub fn with_indexer<I: Indexer + Send + Sync + 'static>(indexer: I) -> Self {
         Self {
             indexers: vec![Box::new(indexer)],
         }
     }
 
-    pub async fn search(&self, query: &str) -> prelude::IndexerResult {
+    pub async fn search(&self, query: &str) -> IndexerResult {
         let items =
             futures::future::join_all(self.indexers.iter().map(|idx| idx.search(query))).await;
         items
@@ -71,7 +70,7 @@ impl IndexerManager {
             .fold(IndexerResult::default(), |res, item| res.merge(item))
     }
 
-    pub async fn feed(&self, category: prelude::Category) -> prelude::IndexerResult {
+    pub async fn feed(&self, category: Category) -> IndexerResult {
         let items =
             futures::future::join_all(self.indexers.iter().map(|idx| idx.feed(category))).await;
         items

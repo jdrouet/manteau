@@ -1,8 +1,8 @@
-use super::prelude::{
+use chrono::{DateTime, Utc};
+use manteau_indexer_prelude::{
     Category, Indexer, IndexerBuilder, IndexerEntry, IndexerError, IndexerErrorReason,
     IndexerResult,
 };
-use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 use scraper::{ElementRef, Html, Selector};
 
@@ -271,7 +271,8 @@ impl Indexer for Indexer1337x {
 #[cfg(test)]
 mod tests {
     use super::Indexer1337x;
-    use crate::prelude::Indexer;
+    use manteau_indexer_prelude::Indexer;
+
     #[tokio::test]
     async fn basic_search() {
         let mut server = mockito::Server::new_async().await;
