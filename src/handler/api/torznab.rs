@@ -130,6 +130,7 @@ async fn handle_tv_search(
     // TODO handle category in search
     let query = match (season, episode) {
         (Some(s), Some(e)) => format!("{query} S{}E{}", format_number(s), format_number(e)),
+        (Some(s), None) => format!("{query} S{}", format_number(s)),
         _ => query,
     };
     let result = indexer.search(&query).await;
