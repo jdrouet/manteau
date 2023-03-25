@@ -2,8 +2,8 @@ use axum::{routing, Extension, Router};
 use std::sync::Arc;
 
 mod config;
-mod entity;
 mod handler;
+mod service;
 
 fn init_logs() {
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -29,11 +29,15 @@ fn address() -> std::net::SocketAddr {
     std::net::SocketAddr::from((host, port))
 }
 
-fn router(indexer: Arc<manteau_indexer_manager::IndexerManager>) -> Router {
+fn router(
+    indexer: Arc<manteau_indexer_manager::IndexerManager>,
+    torznab: Arc<crate::service::torznab::TorznabBuilder>,
+) -> Router {
     Router::new()
         .route("/api/torznab", routing::get(handler::api::torznab::handler))
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .layer(Extension(indexer))
+        .layer(Extension(torznab))
 }
 
 #[tokio::main]
@@ -42,8 +46,9 @@ async fn main() {
 
     let config = crate::config::Config::from_env().expect("couldn't load configuration");
     let indexer = Arc::new(config.indexers.build());
+    let torznab = Arc::new(config.torznab.build());
 
-    let app = router(indexer);
+    let app = router(indexer, torznab);
 
     let addr = address();
     tracing::debug!("listening on {}", addr);

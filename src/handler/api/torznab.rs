@@ -1,9 +1,9 @@
+use crate::service::torznab::TorznabBuilder;
 use axum::extract::Query;
 use axum::response::IntoResponse;
 use axum::Extension;
-use manteau_indexer_manager::prelude::{Category, IndexerEntry};
+use manteau_indexer_manager::prelude::Category;
 use manteau_indexer_manager::IndexerManager;
-use std::borrow::Cow;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -38,7 +38,7 @@ where
     deserializer.deserialize_str(CategoryVisitor)
 }
 
-pub struct ApplicationRssXml(Cow<'static, str>);
+pub struct ApplicationRssXml(String);
 
 impl IntoResponse for ApplicationRssXml {
     fn into_response(self) -> axum::response::Response {
@@ -67,59 +67,54 @@ pub enum QueryParams {
 }
 
 impl QueryParams {
-    async fn handle(&self, indexer: Arc<IndexerManager>) -> ApplicationRssXml {
+    async fn handle(&self, indexer: Arc<IndexerManager>, torznab: Arc<TorznabBuilder>) -> String {
         match self {
-            Self::Caps => handle_caps(),
-            Self::Music => handle_feed(indexer, Category::Music).await,
+            Self::Caps => torznab.capabilities(),
+            Self::Music => handle_feed(indexer, torznab, Category::Music).await,
             Self::Search { cat, q } => {
                 if q.is_empty() {
-                    handle_feed(indexer, *cat).await
+                    handle_feed(indexer, torznab, *cat).await
                 } else {
-                    handle_search(indexer, *cat, q).await
+                    handle_search(indexer, torznab, *cat, q).await
                 }
             }
         }
     }
 }
 
-fn handle_caps() -> ApplicationRssXml {
-    ApplicationRssXml(Cow::Borrowed(
-        crate::entity::torznab::capabilities::CAPABILITIES.as_str(),
-    ))
-}
-
-fn write_response(category: Category, entries: Vec<IndexerEntry>) -> ApplicationRssXml {
-    let result = crate::entity::torznab::rss::build_feed("http://manteau:3000", category, &entries);
-    ApplicationRssXml(Cow::Owned(result))
-}
-
-async fn handle_feed(indexer: Arc<IndexerManager>, category: Category) -> ApplicationRssXml {
+async fn handle_feed(
+    indexer: Arc<IndexerManager>,
+    torznab: Arc<TorznabBuilder>,
+    category: Category,
+) -> String {
     let result = indexer.feed(category).await;
     if !result.errors.is_empty() {
         tracing::debug!("had the following errors: {:?}", result.errors);
     }
-    write_response(category, result.entries)
+    torznab.feed(category, &result.entries)
 }
 
 async fn handle_search(
     indexer: Arc<IndexerManager>,
+    torznab: Arc<TorznabBuilder>,
     category: Category,
     query: &str,
-) -> ApplicationRssXml {
+) -> String {
     // TODO handle category in search
     let result = indexer.search(query).await;
     if !result.errors.is_empty() {
         tracing::debug!("had the following errors: {:?}", result.errors);
     }
-    write_response(category, result.entries)
+    torznab.feed(category, &result.entries)
 }
 
 pub async fn handler(
     Extension(indexer): Extension<Arc<IndexerManager>>,
+    Extension(torznab): Extension<Arc<TorznabBuilder>>,
     Query(params): Query<QueryParams>,
 ) -> ApplicationRssXml {
     tracing::debug!("GET /api/torznab params={params:?}");
-    params.handle(indexer).await
+    ApplicationRssXml(params.handle(indexer, torznab).await)
 }
 
 #[cfg(test)]
@@ -129,7 +124,12 @@ mod tests {
 
     #[tokio::test]
     async fn success() {
-        let res = handler(Extension(Default::default()), Query(QueryParams::Caps)).await;
+        let res = handler(
+            Extension(Default::default()),
+            Extension(Default::default()),
+            Query(QueryParams::Caps),
+        )
+        .await;
         assert!(res.0.contains("manteau"));
     }
 }
@@ -144,6 +144,8 @@ mod integration_tests {
     use manteau_indexer_manager::IndexerManager;
     use std::sync::Arc;
     use tower::ServiceExt;
+
+    use crate::service::torznab::TorznabBuilder;
 
     #[derive(Debug, Clone, Default)]
     struct MockIndexer {
@@ -165,7 +167,8 @@ mod integration_tests {
         crate::init_logs();
 
         let indexer = IndexerManager::with_indexer(MockIndexer::default());
-        let app = crate::router(Arc::new(indexer));
+        let torznab = TorznabBuilder::default();
+        let app = crate::router(Arc::new(indexer), Arc::new(torznab));
 
         let response = app
             .oneshot(
@@ -202,7 +205,8 @@ mod integration_tests {
         });
 
         let indexer = IndexerManager::with_indexer(mock);
-        let app = crate::router(Arc::new(indexer));
+        let torznab = TorznabBuilder::default();
+        let app = crate::router(Arc::new(indexer), Arc::new(torznab));
 
         let response = app
             .oneshot(
@@ -233,7 +237,8 @@ mod integration_tests {
         crate::init_logs();
 
         let indexer = IndexerManager::with_indexer(MockIndexer::default());
-        let app = crate::router(Arc::new(indexer));
+        let torznab = TorznabBuilder::default();
+        let app = crate::router(Arc::new(indexer), Arc::new(torznab));
 
         let response = app
             .oneshot(

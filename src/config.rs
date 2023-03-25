@@ -4,6 +4,7 @@ use std::path::PathBuf;
 #[derive(Debug, serde::Deserialize)]
 pub struct Config {
     pub indexers: IndexerManagerConfig,
+    pub torznab: crate::service::torznab::TorznabConfig,
 }
 
 impl Config {
