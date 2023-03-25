@@ -1,3 +1,5 @@
+pub use bytesize;
+
 use prelude::IndexerResult;
 use std::sync::Arc;
 
