@@ -4,12 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = ["./indexer-manager"]
+members = ["./indexer-manager", "./indexer-prelude"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 manteau-indexer-manager = { path = "./indexer-manager" }
+manteau-indexer-prelude = { path = "./indexer-prelude" }
 
 axum = { version = "0.6" }
 chrono = { version = "0.4", default-features = false, features = ["std"] }

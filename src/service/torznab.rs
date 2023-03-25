@@ -1,4 +1,4 @@
-use manteau_indexer_manager::prelude::{Category, IndexerEntry};
+use manteau_indexer_prelude::{Category, IndexerEntry};
 use quick_xml::events::BytesText;
 use quick_xml::writer::Writer;
 use quick_xml::Result;

@@ -1,8 +1,8 @@
-use crate::prelude::{
+use chrono::{DateTime, Utc};
+use manteau_indexer_prelude::{
     Category, Indexer, IndexerBuilder, IndexerEntry, IndexerError, IndexerErrorReason,
     IndexerResult,
 };
-use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 use reqwest::IntoUrl;
 use scraper::{ElementRef, Html, Selector};
@@ -275,7 +275,7 @@ impl Indexer for IndexerBitsearch {
 #[cfg(test)]
 mod tests {
     use super::IndexerBitsearch;
-    use crate::prelude::Indexer;
+    use manteau_indexer_prelude::Indexer;
 
     #[tokio::test]
     async fn basic_search() {
