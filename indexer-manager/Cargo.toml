@@ -9,6 +9,7 @@ edition = "2021"
 manteau-indexer-prelude = { path = "../indexer-prelude" }
 manteau-indexer-1337x = { path = "../indexer-1337x" }
 manteau-indexer-bitsearch = { path = "../indexer-bitsearch" }
+manteau-indexer-thepiratebay = { path = "../indexer-thepiratebay" }
 
 futures = { version = "0.3", default-features = false, features = [
     "std",

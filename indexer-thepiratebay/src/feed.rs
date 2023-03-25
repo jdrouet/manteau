@@ -50,8 +50,8 @@ impl Entry {
     }
 }
 
-async fn fetch(base_url: &str, category: u16) -> Result<Vec<Entry>, IndexerError> {
-    let url = format!("{base_url}/precompiled/data_top100_{category}.json");
+async fn fetch(api_url: &str, category: u16) -> Result<Vec<Entry>, IndexerError> {
+    let url = format!("{api_url}/precompiled/data_top100_{category}.json");
 
     let req = reqwest::get(url.as_str()).await.map_err(|err| {
         IndexerError::new(
@@ -73,9 +73,9 @@ async fn fetch(base_url: &str, category: u16) -> Result<Vec<Entry>, IndexerError
     })
 }
 
-pub async fn execute(base_url: &str, categories: &[u16]) -> IndexerResult {
+pub async fn execute(api_url: &str, base_url: &str, categories: &[u16]) -> IndexerResult {
     let category_responses =
-        futures::future::join_all(categories.iter().map(|category| fetch(base_url, *category)))
+        futures::future::join_all(categories.iter().map(|category| fetch(api_url, *category)))
             .await;
 
     let mut res = IndexerResult::default();
@@ -113,7 +113,12 @@ mod tests {
             .create_async()
             .await;
 
-        let results = execute(server.url().as_str(), &crate::MUSIC_CATEGORIES).await;
+        let results = execute(
+            server.url().as_str(),
+            "http://tpb.org",
+            &crate::MUSIC_CATEGORIES,
+        )
+        .await;
         println!("results: {results:#?}");
         assert_eq!(results.entries.len(), 200);
         assert_eq!(results.errors.len(), 0);
@@ -121,6 +126,11 @@ mod tests {
             results.entries[0].name,
             "John.Wick.Chapter.4.2023.HDCAM.c1nem4.x264-SUNSCREEN[TGx]"
         );
+        assert_eq!(
+            results.entries[0].url,
+            "http://tpb.org/description.php?id=67117416"
+        );
+        assert_eq!(results.entries[0].magnet, "magnet:?xt=urn%3Abith%3A19370E3FD96FB1ADA86ED5892BE5B791A2A32254&dn=John.Wick.Chapter.4.2023.HDCAM.c1nem4.x264-SUNSCREEN%5BTGx%5D&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A6969%2Fannounce&tr=udp%3A%2F%2F9.rarbg.to%3A2710%2Fannounce&tr=udp%3A%2F%2F9.rarbg.to%3A2780%2Fannounce&tr=udp%3A%2F%2F9.rarbg.to%3A2730%2Fannounce&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=http%3A%2F%2Fp4p.arenabg.com%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce&tr=udp%3A%2F%2Ftracker.tiny-vps.com%3A6969%2Fannounce&tr=udp%3A%2F%2Fopen.stealth.si%3A80%2Fannounce");
         assert_eq!(results.entries[0].seeders, 1068);
         assert_eq!(results.entries[0].leechers, 1074);
         assert_eq!(results.entries[0].size.to_string(), "1044.3 MB");

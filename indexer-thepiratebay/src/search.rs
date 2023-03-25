@@ -117,8 +117,8 @@ async fn fetch(base_url: &str, query: &str, category: u16) -> Result<Vec<Entry>,
     })
 }
 
-pub async fn execute(base_url: &str, query: &str, category: u16) -> IndexerResult {
-    let entries = match fetch(base_url, query, category).await {
+pub async fn execute(api_url: &str, base_url: &str, query: &str, category: u16) -> IndexerResult {
+    let entries = match fetch(api_url, query, category).await {
         Ok(value) => value,
         Err(error) => return IndexerResult::from(error),
     };
@@ -149,7 +149,13 @@ mod tests {
             .create_async()
             .await;
 
-        let results = execute(server.url().as_str(), "how i met your mother", 0).await;
+        let results = execute(
+            server.url().as_str(),
+            "http://tpb.org",
+            "how i met your mother",
+            0,
+        )
+        .await;
         println!("results: {results:#?}");
         assert_eq!(results.entries.len(), 100);
         assert_eq!(results.errors.len(), 0);

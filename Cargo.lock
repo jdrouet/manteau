@@ -880,6 +880,7 @@ dependencies = [
  "manteau-indexer-1337x",
  "manteau-indexer-bitsearch",
  "manteau-indexer-prelude",
+ "manteau-indexer-thepiratebay",
  "serde",
  "tracing",
 ]

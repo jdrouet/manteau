@@ -8,6 +8,8 @@ pub enum IndexerConfig {
     I1337x(manteau_indexer_1337x::Indexer1337xConfig),
     #[serde(rename = "bitsearch")]
     Bitsearch(manteau_indexer_bitsearch::IndexerBitsearchConfig),
+    #[serde(rename = "thepiratebay")]
+    ThePirateBay(manteau_indexer_thepiratebay::IndexerThePirateBayConfig),
 }
 
 impl IndexerBuilder for IndexerConfig {
@@ -16,6 +18,7 @@ impl IndexerBuilder for IndexerConfig {
         match self {
             Self::Bitsearch(inner) => inner.build(name),
             Self::I1337x(inner) => inner.build(name),
+            Self::ThePirateBay(inner) => inner.build(name),
         }
     }
 }
@@ -47,6 +50,7 @@ impl Default for IndexerManager {
             indexers: vec![
                 Box::<manteau_indexer_1337x::Indexer1337x>::default(),
                 Box::<manteau_indexer_bitsearch::IndexerBitsearch>::default(),
+                Box::<manteau_indexer_thepiratebay::IndexerThePirateBay>::default(),
             ],
         }
     }
