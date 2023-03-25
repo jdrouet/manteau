@@ -87,6 +87,15 @@ impl From<Vec<IndexerEntry>> for IndexerResult {
     }
 }
 
+impl From<Vec<IndexerError>> for IndexerResult {
+    fn from(errors: Vec<IndexerError>) -> Self {
+        Self {
+            errors,
+            ..Default::default()
+        }
+    }
+}
+
 impl From<IndexerError> for IndexerResult {
     fn from(value: IndexerError) -> Self {
         Self {
