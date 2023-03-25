@@ -5,3 +5,8 @@ base_url = "https://1337x.to"
 [indexers.bitsearch_to]
 type = "bitsearch"
 base_url = "https://bitsearch.to"
+
+[indexers.thepiratebay_org]
+type = "thepiratebay"
+api_url = "https://apibay.org"
+base_url = "https://thepiratebay.org"
