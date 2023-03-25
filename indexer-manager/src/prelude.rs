@@ -60,6 +60,10 @@ impl FromStr for Category {
     }
 }
 
+pub trait IndexerBuilder: std::fmt::Debug {
+    fn build(self, name: String) -> Box<dyn Indexer + Send + Sync + 'static>;
+}
+
 #[async_trait::async_trait]
 pub trait Indexer: std::fmt::Debug {
     async fn search(&self, query: &str) -> IndexerResult;

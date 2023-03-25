@@ -51,6 +51,9 @@ ENV HOST=0.0.0.0
 ENV PORT=3000
 ENV RUST_LOG=info
 
+ENV CONFIG_FILE=/var/lib/manteau/config.toml
+
+COPY config.toml /var/lib/manteau/config.toml
 COPY --from=builder /code/target/release/manteau /manteau
 
 EXPOSE 3000

@@ -1,0 +1,7 @@
+[indexers.1337x_to]
+type = "1337x"
+base_url = "https://1337x.to"
+
+[indexers.bitsearch_to]
+type = "bitsearch"
+base_url = "https://bitsearch.to"

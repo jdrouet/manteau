@@ -1,5 +1,6 @@
 use super::prelude::{
-    Category, Indexer, IndexerEntry, IndexerError, IndexerErrorReason, IndexerResult,
+    Category, Indexer, IndexerBuilder, IndexerEntry, IndexerError, IndexerErrorReason,
+    IndexerResult,
 };
 use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
@@ -192,8 +193,31 @@ async fn parse_list_page(base_url: &str, html: &str) -> IndexerResult {
     results
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct Indexer1337xConfig {
+    #[serde(default = "Indexer1337xConfig::default_base_url")]
+    pub base_url: String,
+}
+
+impl Indexer1337xConfig {
+    fn default_base_url() -> String {
+        BASE_URL.into()
+    }
+}
+
+impl IndexerBuilder for Indexer1337xConfig {
+    fn build(self, name: String) -> Box<dyn Indexer + Send + Sync + 'static> {
+        tracing::info!("building 1337x indexer named {name:?}");
+        Box::new(Indexer1337x {
+            name,
+            base_url: self.base_url,
+        })
+    }
+}
+
 #[derive(Debug)]
 pub struct Indexer1337x {
+    name: String,
     base_url: String,
 }
 
@@ -206,6 +230,7 @@ impl Default for Indexer1337x {
 impl Indexer1337x {
     pub fn new<S: Into<String>>(base_url: S) -> Self {
         Self {
+            name: "1337x".into(),
             base_url: base_url.into(),
         }
     }
@@ -214,6 +239,7 @@ impl Indexer1337x {
 #[async_trait::async_trait]
 impl Indexer for Indexer1337x {
     async fn search(&self, query: &str) -> IndexerResult {
+        tracing::debug!("{} searching {query:?}", self.name);
         let query = urlencoding::encode(query);
         let path = format!("/search/{query}/1/");
         let html = match fetch_page(&self.base_url, path.as_str()).await {
@@ -225,6 +251,7 @@ impl Indexer for Indexer1337x {
     }
 
     async fn feed(&self, category: Category) -> IndexerResult {
+        tracing::debug!("{} fetching feed for {category:?}", self.name);
         let path = match category {
             Category::Audio | Category::Music => "/cat/Music/1/",
             Category::Movie => "/cat/Movies/1/",
