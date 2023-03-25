@@ -605,6 +605,7 @@ dependencies = [
  "once_cell",
  "reqwest",
  "scraper",
+ "serde",
  "serde_json",
  "tokio",
  "tracing",
@@ -1198,6 +1199,20 @@ name = "serde"
 version = "1.0.157"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "707de5fcf5df2b5788fca98dd7eab490bc2fd9b7ef1404defc462833b83f25ca"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.157"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78997f4555c22a7971214540c4a661291970619afd56de19f77e0de86296e1e5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.2",
+]
 
 [[package]]
 name = "serde_json"
