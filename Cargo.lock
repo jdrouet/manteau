@@ -833,6 +833,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "manteau-indexer-1337x"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytesize",
+ "chrono",
+ "futures",
+ "manteau-indexer-prelude",
+ "mockito",
+ "once_cell",
+ "regex",
+ "reqwest",
+ "scraper",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "url",
+ "urlencoding",
+]
+
+[[package]]
 name = "manteau-indexer-manager"
 version = "0.1.0"
 dependencies = [
@@ -840,6 +862,7 @@ dependencies = [
  "bytesize",
  "chrono",
  "futures",
+ "manteau-indexer-1337x",
  "manteau-indexer-prelude",
  "mockito",
  "once_cell",

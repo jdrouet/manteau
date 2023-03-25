@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = ["./indexer-manager", "./indexer-prelude"]
+members = ["./indexer-manager", "./indexer-prelude", "./indexer-1337x"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
