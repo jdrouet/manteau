@@ -906,6 +906,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "manteau-indexer-thepiratebay"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytesize",
+ "chrono",
+ "futures",
+ "manteau-indexer-prelude",
+ "mockito",
+ "once_cell",
+ "reqwest",
+ "scraper",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "markup5ever"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
