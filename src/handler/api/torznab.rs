@@ -74,6 +74,12 @@ pub enum QueryParams {
         #[serde(default)]
         ep: Option<String>,
     },
+    Movie {
+        #[serde(deserialize_with = "deserialize_category")]
+        cat: Category,
+        #[serde(default)]
+        q: Option<String>,
+    },
 }
 
 impl QueryParams {
@@ -91,6 +97,13 @@ impl QueryParams {
             Self::TvSearch { cat, q, season, ep } => {
                 if let Some(query) = q {
                     handle_tv_search(indexer, torznab, cat, query, season, ep).await
+                } else {
+                    handle_feed(indexer, torznab, cat).await
+                }
+            }
+            Self::Movie { cat, q } => {
+                if let Some(query) = q {
+                    handle_search(indexer, torznab, cat, query).await
                 } else {
                     handle_feed(indexer, torznab, cat).await
                 }
