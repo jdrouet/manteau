@@ -1,6 +1,6 @@
-use std::num::ParseIntError;
-
 use bytesize::ByteSize;
+use chrono::{DateTime, Utc};
+use std::num::ParseIntError;
 use url::ParseError;
 
 #[derive(Clone, Copy, Debug)]
@@ -138,7 +138,7 @@ impl IndexerError {
 pub struct IndexerEntry {
     pub name: String,
     pub url: String,
-    pub date: chrono::NaiveDate,
+    pub date: DateTime<Utc>,
     pub size: ByteSize,
     pub seeders: u32,
     pub leechers: u32,

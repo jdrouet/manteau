@@ -1,10 +1,13 @@
 use crate::prelude::{
     Category, Indexer, IndexerEntry, IndexerError, IndexerErrorReason, IndexerResult,
 };
+use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 use reqwest::IntoUrl;
 use scraper::{ElementRef, Html, Selector};
 use url::Url;
+
+mod date;
 
 static ROW_SELECTOR: Lazy<Selector> = Lazy::new(|| Selector::parse(".card.search-result").unwrap());
 static SEARCH_ROW_NAME_SELECTOR: Lazy<Selector> =
@@ -123,7 +126,7 @@ fn parse_leechers(elt: &ElementRef) -> Result<u32, IndexerError> {
         })
 }
 
-fn parse_date(elt: &ElementRef) -> Result<chrono::NaiveDate, IndexerError> {
+fn parse_date(elt: &ElementRef) -> Result<DateTime<Utc>, IndexerError> {
     let value = elt
         .select(&SEARCH_ROW_DATE_SELECTOR)
         .next()
@@ -131,11 +134,8 @@ fn parse_date(elt: &ElementRef) -> Result<chrono::NaiveDate, IndexerError> {
         .and_then(|child| child.children().find_map(|c| c.value().as_text()))
         .map(|text| text.to_string())
         .ok_or_else(|| IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryDateNotFound))?;
-    chrono::NaiveDate::parse_from_str(&value, "%b %e, %Y").map_err(|err| {
-        IndexerError::new(
-            INDEXER_NAME,
-            IndexerErrorReason::EntryDateInvalid { cause: err.kind() },
-        )
+    date::parse(&value).map_err(|cause| {
+        IndexerError::new(INDEXER_NAME, IndexerErrorReason::EntryDateInvalid { cause })
     })
 }
 

@@ -38,7 +38,12 @@ COPY --from=vendor /code/vendor /code/vendor
 
 COPY indexer-manager/src /code/indexer-manager/src
 COPY src /code/src
-RUN cargo build --release --offline
+RUN --mount=type=cache,target=/code/target/release/.fingerprint,sharing=private \
+    --mount=type=cache,target=/code/target/release/build,sharing=private \
+    --mount=type=cache,target=/code/target/release/deps,sharing=private \
+    --mount=type=cache,target=/code/target/release/examples,sharing=private \
+    --mount=type=cache,target=/code/target/release/incremental,sharing=private \
+    cargo build --release --offline
 
 FROM alpine
 
