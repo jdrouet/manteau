@@ -1,4 +1,5 @@
 use axum::{routing, Extension, Router};
+use std::sync::Arc;
 
 mod config;
 mod entity;
@@ -28,7 +29,7 @@ fn address() -> std::net::SocketAddr {
     std::net::SocketAddr::from((host, port))
 }
 
-fn router(indexer: manteau_indexer_manager::IndexerManager) -> Router {
+fn router(indexer: Arc<manteau_indexer_manager::IndexerManager>) -> Router {
     Router::new()
         .route("/api/torznab", routing::get(handler::api::torznab::handler))
         .layer(tower_http::trace::TraceLayer::new_for_http())
@@ -40,7 +41,7 @@ async fn main() {
     init_logs();
 
     let config = crate::config::Config::from_env().expect("couldn't load configuration");
-    let indexer = config.indexers.build();
+    let indexer = Arc::new(config.indexers.build());
 
     let app = router(indexer);
 

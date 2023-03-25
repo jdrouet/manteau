@@ -1,7 +1,7 @@
 pub use bytesize;
 
 use prelude::{IndexerBuilder, IndexerResult};
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 mod bitsearch;
 mod i1337x;
@@ -30,33 +30,22 @@ pub struct IndexerManagerConfig(HashMap<String, IndexerConfig>);
 
 impl IndexerManagerConfig {
     pub fn build(self) -> IndexerManager {
-        IndexerManager(Arc::new(IndexerManagerInner {
+        IndexerManager {
             indexers: self
                 .0
                 .into_iter()
                 .map(|(name, config)| config.build(name))
                 .collect(),
-        }))
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct IndexerManager(Arc<IndexerManagerInner>);
-
-impl IndexerManager {
-    pub fn with_indexer<I: prelude::Indexer + Send + Sync + 'static>(indexer: I) -> Self {
-        Self(Arc::new(IndexerManagerInner {
-            indexers: vec![Box::new(indexer)],
-        }))
+        }
     }
 }
 
 #[derive(Debug)]
-struct IndexerManagerInner {
+pub struct IndexerManager {
     indexers: Vec<Box<dyn prelude::Indexer + Send + Sync + 'static>>,
 }
 
-impl Default for IndexerManagerInner {
+impl Default for IndexerManager {
     fn default() -> Self {
         Self {
             indexers: vec![
@@ -68,9 +57,15 @@ impl Default for IndexerManagerInner {
 }
 
 impl IndexerManager {
+    pub fn with_indexer<I: prelude::Indexer + Send + Sync + 'static>(indexer: I) -> Self {
+        Self {
+            indexers: vec![Box::new(indexer)],
+        }
+    }
+
     pub async fn search(&self, query: &str) -> prelude::IndexerResult {
         let items =
-            futures::future::join_all(self.0.indexers.iter().map(|idx| idx.search(query))).await;
+            futures::future::join_all(self.indexers.iter().map(|idx| idx.search(query))).await;
         items
             .into_iter()
             .fold(IndexerResult::default(), |res, item| res.merge(item))
@@ -78,7 +73,7 @@ impl IndexerManager {
 
     pub async fn feed(&self, category: prelude::Category) -> prelude::IndexerResult {
         let items =
-            futures::future::join_all(self.0.indexers.iter().map(|idx| idx.feed(category))).await;
+            futures::future::join_all(self.indexers.iter().map(|idx| idx.feed(category))).await;
         items
             .into_iter()
             .fold(IndexerResult::default(), |res, item| res.merge(item))
