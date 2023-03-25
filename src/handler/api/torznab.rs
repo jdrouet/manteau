@@ -89,12 +89,22 @@ fn handle_caps() -> ApplicationRssXml {
     ))
 }
 
+fn write_date(date: chrono::NaiveDate) -> String {
+    let result = date
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(chrono::Utc)
+        .unwrap();
+    result.to_rfc2822()
+}
+
 fn write_item(result: &mut String, item: IndexerEntry, category: Category) {
     result.push_str("<item>");
     result.push_str(&format!("<title>{}</title>", item.name));
     result.push_str(&format!("<guid>{}</guid>", item.url));
     result.push_str("<type>public</type>");
     result.push_str(&format!("<comments>{}</comments>", item.url));
+    result.push_str(&format!("<pubDate>{}</pubDate>", write_date(item.date)));
     result.push_str(&format!("<size>{}</size>", item.size.as_u64()));
     result.push_str("<description />");
     result.push_str(&format!("<category>{}</category>", category.kind()));
@@ -199,6 +209,8 @@ mod integration_tests {
 
     #[tokio::test]
     async fn caps_should_return_valid_xml() {
+        crate::init_logs();
+
         let indexer = manteau_indexer_manager::IndexerManager::with_indexer(MockIndexer::default());
         let app = crate::router(indexer);
 
@@ -222,6 +234,8 @@ mod integration_tests {
 
     #[tokio::test]
     async fn music_should_return_valid_xml() {
+        crate::init_logs();
+
         let indexer = manteau_indexer_manager::IndexerManager::with_indexer(MockIndexer::default());
         let app = crate::router(indexer);
 
