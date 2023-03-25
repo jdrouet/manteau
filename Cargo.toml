@@ -26,5 +26,8 @@ tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
+async-trait = { version = "0.1" }
+hyper = { version = "0.14" }
 mockito = { version = "1.0" }
 serde_json = { version = "1.0" }
+tower = { version = "0.4" }

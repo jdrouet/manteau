@@ -1,6 +1,6 @@
 use axum::{routing, Extension, Router};
 
-mod entry;
+mod entity;
 mod handler;
 
 fn init_logs() {
@@ -27,24 +27,19 @@ fn address() -> std::net::SocketAddr {
     std::net::SocketAddr::from((host, port))
 }
 
+fn router(indexer: manteau_indexer_manager::IndexerManager) -> Router {
+    Router::new()
+        .route("/api/torznab", routing::get(handler::api::torznab::handler))
+        .layer(tower_http::trace::TraceLayer::new_for_http())
+        .layer(Extension(indexer))
+}
+
 #[tokio::main]
 async fn main() {
     init_logs();
 
-    let indexers = manteau_indexer_manager::IndexerManager::default();
-
-    let app = Router::new()
-        .route("/api/torznab", routing::get(handler::api::torznab::handler))
-        .route(
-            "/api/blackhole",
-            routing::get(handler::api::blackhole::handler),
-        )
-        .route(
-            "/api/blackhole/*path",
-            routing::get(handler::api::blackhole::handler),
-        )
-        .layer(tower_http::trace::TraceLayer::new_for_http())
-        .layer(Extension(indexers));
+    let indexer = manteau_indexer_manager::IndexerManager::default();
+    let app = router(indexer);
 
     let addr = address();
     tracing::debug!("listening on {}", addr);
