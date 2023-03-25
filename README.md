@@ -13,10 +13,10 @@ With Manteau, you **just** start the container and it works! You can also config
 
 ```sh
 # Using docker, compatible with amd64 and arm64 for now
-docker run --name manteau -d -p 3000:3000 jdrouet/manteau:latest
+docker run --name manteau -d jdrouet/manteau:latest
 ```
 
-You can then s
+You can then configure `sonarr`, `radarr` or `lidarr` to contact manteau on `http://manteau:3000` with the API path `/api/torznab` without any API key (yet).
 
 ## Run tests
 
