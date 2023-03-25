@@ -1,125 +1,176 @@
 use super::prelude::{Indexer, SearchResult, SearchResultError, SearchResultItem};
 use once_cell::sync::Lazy;
-use scraper::{Html, Selector};
+use scraper::{ElementRef, Html, Selector};
 
 const BASE_URL: &str = "https://1337x.to";
 const INDEXER_NAME: &str = "1337x";
 
-static SEARCH_TAB_ROW_SELECTOR: Lazy<Selector> =
+static ROW_SELECTOR: Lazy<Selector> =
     Lazy::new(|| Selector::parse(".table-list tbody tr").unwrap());
-static SEARCH_ROW_NAME_SELECTOR: Lazy<Selector> =
+static NAME_SELECTOR: Lazy<Selector> =
     Lazy::new(|| Selector::parse("td.name a:nth-child(2)").unwrap());
-static SEARCH_ROW_SEEDS_SELECTOR: Lazy<Selector> =
-    Lazy::new(|| Selector::parse("td.seeds").unwrap());
-static SEARCH_ROW_LEECHERS_SELECTOR: Lazy<Selector> =
-    Lazy::new(|| Selector::parse("td.leeches").unwrap());
-static SEARCH_ROW_SIZE_SELECTOR: Lazy<Selector> = Lazy::new(|| Selector::parse("td.size").unwrap());
+static SEEDS_SELECTOR: Lazy<Selector> = Lazy::new(|| Selector::parse("td.seeds").unwrap());
+static LEECHERS_SELECTOR: Lazy<Selector> = Lazy::new(|| Selector::parse("td.leeches").unwrap());
+static SIZE_SELECTOR: Lazy<Selector> = Lazy::new(|| Selector::parse("td.size").unwrap());
 static RESULT_LINK: Lazy<Selector> = Lazy::new(|| {
     Selector::parse("main.container div.row div.page-content div.box-info.torrent-detail-page div.no-top-radius div ul li a").unwrap()
 });
 
-struct ResultPage(Html);
-
-impl From<&str> for ResultPage {
-    fn from(value: &str) -> Self {
-        Self(Html::parse_document(value))
-    }
+async fn fetch_page(base_url: &str, path: &str) -> Result<String, SearchResultError> {
+    let url = format!("{base_url}{path}");
+    let req = reqwest::get(&url).await.map_err(|err| SearchResultError {
+        origin: INDEXER_NAME,
+        message: format!("unable to query {url:?}"),
+        cause: Some(Box::new(err)),
+    })?;
+    req.text().await.map_err(|err| SearchResultError {
+        origin: INDEXER_NAME,
+        message: format!("unable to read result from {url:?}"),
+        cause: Some(Box::new(err)),
+    })
 }
 
-impl ResultPage {
-    fn rows(self) -> Vec<ResultPageRow> {
-        self.0
-            .select(&SEARCH_TAB_ROW_SELECTOR)
-            .filter_map(|tr| {
-                let link = match tr.select(&SEARCH_ROW_NAME_SELECTOR).next() {
-                    Some(value) => value,
-                    None => {
-                        tracing::debug!("unable to get name column");
-                        return None;
-                    }
-                };
-                let name: String = link.text().collect();
-                let name = name.trim().to_string();
-                let path = match link.value().attr("href") {
-                    Some(value) => value.to_string(),
-                    None => {
-                        tracing::debug!("unable to get link for {name}");
-                        return None;
-                    }
-                };
-                let seeders = tr.select(&SEARCH_ROW_SEEDS_SELECTOR).next().and_then(|td| {
-                    let inner: String = td.text().collect();
-                    inner.parse::<u32>().ok()
-                });
-                let seeders = match seeders {
-                    Some(value) => value,
-                    None => {
-                        tracing::debug!("unable to get seeders for {name}");
-                        return None;
-                    }
-                };
-                let leechers = tr
-                    .select(&SEARCH_ROW_LEECHERS_SELECTOR)
-                    .next()
-                    .and_then(|td| {
-                        let inner: String = td.text().collect();
-                        inner.parse::<u32>().ok()
-                    });
-                let leechers = match leechers {
-                    Some(value) => value,
-                    None => {
-                        tracing::debug!("unable to get leechers for {name}");
-                        return None;
-                    }
-                };
-                let size = tr.select(&SEARCH_ROW_SIZE_SELECTOR).next().map(|td| {
-                    let inner: String = td.text().next().unwrap_or_default().to_string();
-                    inner.parse::<bytesize::ByteSize>()
-                });
-                let size = match size {
-                    Some(Ok(value)) => value,
-                    Some(Err(inner)) => {
-                        tracing::debug!("unable to parse size for {name}: {inner:?}");
-                        return None;
-                    }
-                    None => {
-                        tracing::debug!("unable to get leechers for {name}");
-                        return None;
-                    }
-                };
+async fn fetch_magnet(base_url: &str, path: &str) -> Result<String, SearchResultError> {
+    let html = fetch_page(base_url, path).await?;
+    let html = Html::parse_document(html.as_str());
 
-                Some(ResultPageRow {
-                    name,
-                    path,
-                    size,
-                    seeders,
-                    leechers,
-                })
-            })
-            .collect()
-    }
-}
-
-struct ResultPageRow {
-    name: String,
-    path: String,
-    size: bytesize::ByteSize,
-    seeders: u32,
-    leechers: u32,
-}
-
-impl ResultPageRow {
-    fn into_search_result(self, base_url: &str, magnet: String) -> SearchResultItem {
-        SearchResultItem {
-            name: self.name,
-            url: format!("{base_url}{}", self.path),
-            size: self.size,
-            seeders: self.seeders,
-            leechers: self.leechers,
-            magnet,
+    html.select(&RESULT_LINK)
+        .filter_map(|link| link.value().attr("href"))
+        .filter(|link| link.starts_with("magnet:?"))
+        .map(String::from)
+        .next()
+        .ok_or_else(|| SearchResultError {
             origin: INDEXER_NAME,
-        }
+            message: format!("unable to find magnet in {path:?}"),
+            cause: None,
+        })
+}
+
+fn parse_link_element<'a>(elt: &'a ElementRef) -> Result<ElementRef<'a>, SearchResultError> {
+    elt.select(&NAME_SELECTOR)
+        .next()
+        .ok_or_else(|| SearchResultError {
+            origin: INDEXER_NAME,
+            message: "unable to find item name".into(),
+            cause: None,
+        })
+}
+
+fn parse_link<'a>(elt: &'a ElementRef) -> Result<(String, &'a str), SearchResultError> {
+    let link = parse_link_element(&elt)?;
+    let name = link.text().collect::<String>();
+    let path = link.value().attr("href").ok_or_else(|| SearchResultError {
+        origin: INDEXER_NAME,
+        message: "unable to find item link".into(),
+        cause: None,
+    })?;
+    Ok((name, path))
+}
+
+fn parse_seeders(elt: &ElementRef) -> Result<u32, SearchResultError> {
+    let value = elt
+        .select(&SEEDS_SELECTOR)
+        .next()
+        .ok_or_else(|| SearchResultError {
+            origin: INDEXER_NAME,
+            message: "unable to find seeders".into(),
+            cause: None,
+        })?;
+    value
+        .text()
+        .collect::<String>()
+        .parse::<u32>()
+        .map_err(|err| SearchResultError {
+            origin: INDEXER_NAME,
+            message: "unable to parse seeders".into(),
+            cause: Some(Box::new(err)),
+        })
+}
+
+fn parse_leechers(elt: &ElementRef) -> Result<u32, SearchResultError> {
+    let value = elt
+        .select(&LEECHERS_SELECTOR)
+        .next()
+        .ok_or_else(|| SearchResultError {
+            origin: INDEXER_NAME,
+            message: "unable to find leechers".into(),
+            cause: None,
+        })?;
+    value
+        .text()
+        .collect::<String>()
+        .parse::<u32>()
+        .map_err(|err| SearchResultError {
+            origin: INDEXER_NAME,
+            message: "unable to parse leechers".into(),
+            cause: Some(Box::new(err)),
+        })
+}
+
+fn parse_size(elt: &ElementRef) -> Result<bytesize::ByteSize, SearchResultError> {
+    let value = elt
+        .select(&SIZE_SELECTOR)
+        .next()
+        .ok_or_else(|| SearchResultError {
+            origin: INDEXER_NAME,
+            message: "unable to find size".into(),
+            cause: None,
+        })?;
+
+    let value = value.text().next().ok_or_else(|| SearchResultError {
+        origin: INDEXER_NAME,
+        message: "unable to find size".into(),
+        cause: None,
+    })?;
+
+    value
+        .parse::<bytesize::ByteSize>()
+        .map_err(|err| SearchResultError {
+            origin: INDEXER_NAME,
+            message: format!("unable to parse size: {}", err),
+            cause: None,
+        })
+}
+
+async fn parse_row_result<'a>(
+    base_url: &str,
+    elt: ElementRef<'a>,
+) -> Result<SearchResultItem, SearchResultError> {
+    let (name, link) = parse_link(&elt)?;
+    let seeders = parse_seeders(&elt)?;
+    let leechers = parse_leechers(&elt)?;
+    let size = parse_size(&elt)?;
+    let magnet = fetch_magnet(base_url, link).await?;
+
+    Ok(SearchResultItem {
+        name,
+        url: format!("{base_url}{link}"),
+        size,
+        seeders,
+        leechers,
+        magnet,
+        origin: INDEXER_NAME,
+    })
+}
+
+async fn parse_search_page(base_url: &str, html: &str) -> SearchResult {
+    let mut results = SearchResult::default();
+
+    let html = Html::parse_document(html);
+
+    let calls = html
+        .select(&ROW_SELECTOR)
+        .map(|elt| parse_row_result(base_url, elt));
+    let items = futures::future::join_all(calls).await;
+
+    for element in items {
+        match element {
+            Ok(found) => results.entries.push(found),
+            Err(error) => results.errors.push(error),
+        };
     }
+
+    results
 }
 
 #[derive(Debug)]
@@ -140,78 +191,32 @@ impl Indexer1337x {
         }
     }
 
-    async fn fetch_page(&self, path: &str) -> Result<String, SearchResultError> {
-        let url = format!("{}{path}", self.base_url);
-        let req = reqwest::get(&url).await.map_err(|err| SearchResultError {
-            origin: INDEXER_NAME,
-            message: format!("unable to query {url:?}"),
-            cause: Some(Box::new(err)),
-        })?;
-        req.text().await.map_err(|err| SearchResultError {
-            origin: INDEXER_NAME,
-            message: format!("unable to read result from {url:?}"),
-            cause: Some(Box::new(err)),
-        })
-    }
+    async fn execute(&self, query: &str) -> SearchResult {
+        let query = urlencoding::encode(query);
+        let path = format!("/search/{query}/1/");
+        let html = match fetch_page(&self.base_url, path.as_str()).await {
+            Ok(value) => value,
+            Err(error) => {
+                return SearchResult::from(SearchResultError {
+                    origin: self.name(),
+                    message: "unable to fetch search page".to_string(),
+                    cause: Some(Box::new(error)),
+                });
+            }
+        };
 
-    async fn fetch_result(
-        &self,
-        row: ResultPageRow,
-    ) -> Result<SearchResultItem, SearchResultError> {
-        let html = self.fetch_page(row.path.as_str()).await?;
-        let html = Html::parse_document(html.as_str());
-
-        let magnet = html
-            .select(&RESULT_LINK)
-            .filter_map(|link| link.value().attr("href"))
-            .filter(|link| link.starts_with("magnet:?"))
-            .map(String::from)
-            .next();
-
-        if let Some(link) = magnet {
-            Ok(row.into_search_result(self.base_url.as_str(), link))
-        } else {
-            Err(SearchResultError {
-                origin: self.name(),
-                message: "unable to read magned href".into(),
-                cause: None,
-            })
-        }
+        parse_search_page(&self.base_url, &html).await
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait::async_trait(?Send)]
 impl Indexer for Indexer1337x {
     fn name(&self) -> &'static str {
         INDEXER_NAME
     }
 
     async fn search(&self, query: &str) -> SearchResult {
-        let mut result = SearchResult::default();
-
-        let query = urlencoding::encode(query);
-        let path = format!("/search/{query}/1/");
-        let html = match self.fetch_page(path.as_str()).await {
-            Ok(value) => value,
-            Err(error) => {
-                result.errors.push(SearchResultError {
-                    origin: self.name(),
-                    message: "unable to fetch search page".to_string(),
-                    cause: Some(Box::new(error)),
-                });
-                return result;
-            }
-        };
-        let rows = ResultPage::from(html.as_str()).rows();
-
-        for row in rows {
-            match self.fetch_result(row).await {
-                Ok(item) => result.entries.push(item),
-                Err(error) => result.errors.push(error),
-            };
-        }
-
-        result
+        self.execute(query).await
     }
 }
 

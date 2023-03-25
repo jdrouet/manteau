@@ -1,6 +1,6 @@
 use bytesize::ByteSize;
 
-#[async_trait::async_trait]
+#[async_trait::async_trait(?Send)]
 pub trait Indexer: std::fmt::Debug {
     fn name(&self) -> &'static str;
     async fn search(&self, query: &str) -> SearchResult;
