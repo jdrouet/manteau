@@ -1,3 +1,6 @@
+use axum::{routing, Extension, Router};
+
+mod entry;
 mod handler;
 mod service;
 
@@ -29,12 +32,20 @@ fn address() -> std::net::SocketAddr {
 async fn main() {
     init_logs();
 
-    let app = axum::Router::new()
+    let indexers = crate::service::indexer::IndexerManager::default();
+
+    let app = Router::new()
+        .route("/api/torznab", routing::get(handler::api::torznab::handler))
         .route(
-            "/api/torznab",
-            axum::routing::get(handler::api::torznab::handler),
+            "/api/blackhole",
+            routing::get(handler::api::blackhole::handler),
         )
-        .layer(tower_http::trace::TraceLayer::new_for_http());
+        .route(
+            "/api/blackhole/*path",
+            routing::get(handler::api::blackhole::handler),
+        )
+        .layer(tower_http::trace::TraceLayer::new_for_http())
+        .layer(Extension(indexers));
 
     let addr = address();
     tracing::debug!("listening on {}", addr);

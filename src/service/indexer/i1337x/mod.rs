@@ -1,4 +1,4 @@
-use super::prelude::{Indexer, SearchResult, SearchResultError, SearchResultItem};
+use super::prelude::{Category, IndexerEntry, IndexerError, IndexerResult};
 use once_cell::sync::Lazy;
 use scraper::{ElementRef, Html, Selector};
 
@@ -16,21 +16,19 @@ static RESULT_LINK: Lazy<Selector> = Lazy::new(|| {
     Selector::parse("main.container div.row div.page-content div.box-info.torrent-detail-page div.no-top-radius div ul li a").unwrap()
 });
 
-async fn fetch_page(base_url: &str, path: &str) -> Result<String, SearchResultError> {
+async fn fetch_page(base_url: &str, path: &str) -> Result<String, IndexerError> {
     let url = format!("{base_url}{path}");
-    let req = reqwest::get(&url).await.map_err(|err| SearchResultError {
-        origin: INDEXER_NAME,
-        message: format!("unable to query {url:?}"),
-        cause: Some(Box::new(err)),
+    let req = reqwest::get(&url).await.map_err(|err| {
+        IndexerError::new(INDEXER_NAME, format!("unable to query {url:?}"))
+            .with_cause(Box::new(err))
     })?;
-    req.text().await.map_err(|err| SearchResultError {
-        origin: INDEXER_NAME,
-        message: format!("unable to read result from {url:?}"),
-        cause: Some(Box::new(err)),
+    req.text().await.map_err(|err| {
+        IndexerError::new(INDEXER_NAME, format!("unable to read result from {url:?}"))
+            .with_cause(Box::new(err))
     })
 }
 
-async fn fetch_magnet(base_url: &str, path: &str) -> Result<String, SearchResultError> {
+async fn fetch_magnet(base_url: &str, path: &str) -> Result<String, IndexerError> {
     let html = fetch_page(base_url, path).await?;
     let html = Html::parse_document(html.as_str());
 
@@ -39,110 +37,84 @@ async fn fetch_magnet(base_url: &str, path: &str) -> Result<String, SearchResult
         .filter(|link| link.starts_with("magnet:?"))
         .map(String::from)
         .next()
-        .ok_or_else(|| SearchResultError {
-            origin: INDEXER_NAME,
-            message: format!("unable to find magnet in {path:?}"),
-            cause: None,
+        .ok_or_else(|| {
+            IndexerError::new(INDEXER_NAME, format!("unable to find magnet in {path:?}"))
         })
 }
 
-fn parse_link_element<'a>(elt: &'a ElementRef) -> Result<ElementRef<'a>, SearchResultError> {
+fn parse_link_element<'a>(elt: &'a ElementRef) -> Result<ElementRef<'a>, IndexerError> {
     elt.select(&NAME_SELECTOR)
         .next()
-        .ok_or_else(|| SearchResultError {
-            origin: INDEXER_NAME,
-            message: "unable to find item name".into(),
-            cause: None,
-        })
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to find item name".into()))
 }
 
-fn parse_link<'a>(elt: &'a ElementRef) -> Result<(String, &'a str), SearchResultError> {
+fn parse_link<'a>(elt: &'a ElementRef) -> Result<(String, &'a str), IndexerError> {
     let link = parse_link_element(&elt)?;
-    let name = link.text().collect::<String>();
-    let path = link.value().attr("href").ok_or_else(|| SearchResultError {
-        origin: INDEXER_NAME,
-        message: "unable to find item link".into(),
-        cause: None,
-    })?;
+    let name = link.text().collect::<String>().trim().to_string();
+    let path = link
+        .value()
+        .attr("href")
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to find item link".into()))?;
     Ok((name, path))
 }
 
-fn parse_seeders(elt: &ElementRef) -> Result<u32, SearchResultError> {
+fn parse_seeders(elt: &ElementRef) -> Result<u32, IndexerError> {
     let value = elt
         .select(&SEEDS_SELECTOR)
         .next()
-        .ok_or_else(|| SearchResultError {
-            origin: INDEXER_NAME,
-            message: "unable to find seeders".into(),
-            cause: None,
-        })?;
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to find seeders".into()))?;
     value
         .text()
         .collect::<String>()
         .parse::<u32>()
-        .map_err(|err| SearchResultError {
-            origin: INDEXER_NAME,
-            message: "unable to parse seeders".into(),
-            cause: Some(Box::new(err)),
+        .map_err(|err| {
+            IndexerError::new(INDEXER_NAME, "unable to parse seeders".into())
+                .with_cause(Box::new(err))
         })
 }
 
-fn parse_leechers(elt: &ElementRef) -> Result<u32, SearchResultError> {
+fn parse_leechers(elt: &ElementRef) -> Result<u32, IndexerError> {
     let value = elt
         .select(&LEECHERS_SELECTOR)
         .next()
-        .ok_or_else(|| SearchResultError {
-            origin: INDEXER_NAME,
-            message: "unable to find leechers".into(),
-            cause: None,
-        })?;
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to find leechers".into()))?;
     value
         .text()
         .collect::<String>()
         .parse::<u32>()
-        .map_err(|err| SearchResultError {
-            origin: INDEXER_NAME,
-            message: "unable to parse leechers".into(),
-            cause: Some(Box::new(err)),
+        .map_err(|err| {
+            IndexerError::new(INDEXER_NAME, "unable to parse leechers".into())
+                .with_cause(Box::new(err))
         })
 }
 
-fn parse_size(elt: &ElementRef) -> Result<bytesize::ByteSize, SearchResultError> {
+fn parse_size(elt: &ElementRef) -> Result<bytesize::ByteSize, IndexerError> {
     let value = elt
         .select(&SIZE_SELECTOR)
         .next()
-        .ok_or_else(|| SearchResultError {
-            origin: INDEXER_NAME,
-            message: "unable to find size".into(),
-            cause: None,
-        })?;
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to find size".into()))?;
 
-    let value = value.text().next().ok_or_else(|| SearchResultError {
-        origin: INDEXER_NAME,
-        message: "unable to find size".into(),
-        cause: None,
-    })?;
+    let value = value
+        .text()
+        .next()
+        .ok_or_else(|| IndexerError::new(INDEXER_NAME, "unable to find size".into()))?;
 
     value
         .parse::<bytesize::ByteSize>()
-        .map_err(|err| SearchResultError {
-            origin: INDEXER_NAME,
-            message: format!("unable to parse size: {}", err),
-            cause: None,
-        })
+        .map_err(|err| IndexerError::new(INDEXER_NAME, format!("unable to parse size: {}", err)))
 }
 
-async fn parse_row_result<'a>(
+async fn parse_list_row<'a>(
     base_url: &str,
     elt: ElementRef<'a>,
-) -> Result<SearchResultItem, SearchResultError> {
+) -> Result<IndexerEntry, IndexerError> {
     let (name, link) = parse_link(&elt)?;
     let seeders = parse_seeders(&elt)?;
     let leechers = parse_leechers(&elt)?;
     let size = parse_size(&elt)?;
     let magnet = fetch_magnet(base_url, link).await?;
 
-    Ok(SearchResultItem {
+    Ok(IndexerEntry {
         name,
         url: format!("{base_url}{link}"),
         size,
@@ -153,14 +125,14 @@ async fn parse_row_result<'a>(
     })
 }
 
-async fn parse_search_page(base_url: &str, html: &str) -> SearchResult {
-    let mut results = SearchResult::default();
+async fn parse_list_page(base_url: &str, html: &str) -> IndexerResult {
+    let mut results = IndexerResult::default();
 
     let html = Html::parse_document(html);
 
     let calls = html
         .select(&ROW_SELECTOR)
-        .map(|elt| parse_row_result(base_url, elt));
+        .map(|elt| parse_list_row(base_url, elt));
     let items = futures::future::join_all(calls).await;
 
     for element in items {
@@ -190,40 +162,40 @@ impl Indexer1337x {
             base_url: base_url.into(),
         }
     }
+}
 
-    async fn execute(&self, query: &str) -> SearchResult {
+impl Indexer1337x {
+    pub async fn search(&self, query: &str) -> IndexerResult {
         let query = urlencoding::encode(query);
         let path = format!("/search/{query}/1/");
         let html = match fetch_page(&self.base_url, path.as_str()).await {
             Ok(value) => value,
-            Err(error) => {
-                return SearchResult::from(SearchResultError {
-                    origin: self.name(),
-                    message: "unable to fetch search page".to_string(),
-                    cause: Some(Box::new(error)),
-                });
-            }
+            Err(error) => return IndexerResult::from(error),
         };
 
-        parse_search_page(&self.base_url, &html).await
-    }
-}
-
-#[async_trait::async_trait(?Send)]
-impl Indexer for Indexer1337x {
-    fn name(&self) -> &'static str {
-        INDEXER_NAME
+        parse_list_page(&self.base_url, &html).await
     }
 
-    async fn search(&self, query: &str) -> SearchResult {
-        self.execute(query).await
+    pub async fn feed(&self, category: Category) -> IndexerResult {
+        let path = match category {
+            Category::Audio | Category::Music => "/cat/Music/1/",
+            Category::Movie => "/cat/Movies/1/",
+            Category::Tv => "/cat/TV/1/",
+            Category::Book => "/cat/Other/1/",
+        };
+
+        let html = match fetch_page(&self.base_url, path).await {
+            Ok(value) => value,
+            Err(error) => return IndexerResult::from(error),
+        };
+
+        parse_list_page(&self.base_url, &html).await
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::Indexer1337x;
-    use crate::indexer::prelude::Indexer;
 
     #[tokio::test]
     async fn basic_search() {
@@ -237,7 +209,7 @@ mod tests {
             .with_status(200)
             .with_header("content-type", "text/html")
             .with_body(include_str!(
-                "../../../asset/indexer-1337x-search-page.html"
+                "../../../../asset/indexer-1337x-search-page.html"
             ))
             .create_async()
             .await;
@@ -250,7 +222,7 @@ mod tests {
             .with_status(200)
             .with_header("content-type", "text/html")
             .with_body(
-                include_str!("../../../asset/indexer-1337x-result-page.html")
+                include_str!("../../../../asset/indexer-1337x-result-page.html")
                     .replace("%RESULT_NAME%", "How I Met Your Mother - Season 4"),
             )
             .expect(20)

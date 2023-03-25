@@ -4,33 +4,29 @@ pub mod bitsearch;
 pub mod i1337x;
 pub mod prelude;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct IndexerManager(Arc<IndexerManagerInner>);
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct IndexerManagerInner {
-    indexers: Vec<Box<dyn prelude::Indexer>>,
-}
-
-impl Default for IndexerManager {
-    fn default() -> Self {
-        Self(Arc::new(IndexerManagerInner {
-            indexers: vec![
-                Box::<i1337x::Indexer1337x>::default(),
-                Box::<bitsearch::IndexerBitsearch>::default(),
-            ],
-        }))
-    }
+    indexer_1337x: i1337x::Indexer1337x,
+    indexer_bitsearch: bitsearch::IndexerBitsearch,
 }
 
 impl IndexerManager {
-    pub async fn search(&self, query: &str) -> prelude::SearchResult {
-        let calls = self.0.indexers.iter().map(|indexer| indexer.search(query));
-        let items = futures::future::join_all(calls).await;
-        items
-            .into_iter()
-            .fold(prelude::SearchResult::default(), |res, item| {
-                res.merge(item)
-            })
+    pub async fn search(&self, query: &str) -> prelude::IndexerResult {
+        let (i1337x, bitsearch) = tokio::join!(
+            self.0.indexer_1337x.search(query),
+            self.0.indexer_bitsearch.search(query),
+        );
+        i1337x.merge(bitsearch)
+    }
+
+    pub async fn feed(&self, category: prelude::Category) -> prelude::IndexerResult {
+        let (i1337x, bitsearch) = tokio::join!(
+            self.0.indexer_1337x.feed(category),
+            self.0.indexer_bitsearch.feed(category),
+        );
+        i1337x.merge(bitsearch)
     }
 }
