@@ -144,27 +144,17 @@ impl IndexerError {
     }
 }
 
-// impl std::fmt::Display for IndexerError {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         write!(
-//             f,
-//             "SearchResultError {{ origin={:?}, message={:?} }}",
-//             self.origin, self.message
-//         )
-//     }
-// }
+impl std::fmt::Display for IndexerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "IndexerError {{ origin={:?}, reason={:?} }}",
+            self.origin, self.reason
+        )
+    }
+}
 
-// impl std::error::Error for IndexerError {
-//     fn description(&self) -> &str {
-//         &self.message
-//     }
-
-//     fn cause(&self) -> Option<&dyn std::error::Error> {
-//         self.cause
-//             .as_ref()
-//             .map(|v| v.as_ref() as &dyn std::error::Error)
-//     }
-// }
+impl std::error::Error for IndexerError {}
 
 #[derive(Clone, Debug)]
 pub struct IndexerEntry {

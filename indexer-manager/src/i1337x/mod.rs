@@ -63,7 +63,7 @@ fn parse_link_element<'a>(elt: &'a ElementRef) -> Result<ElementRef<'a>, Indexer
 }
 
 fn parse_link<'a>(elt: &'a ElementRef) -> Result<(String, &'a str), IndexerError> {
-    let link = parse_link_element(&elt)?;
+    let link = parse_link_element(elt)?;
     let name = link.text().collect::<String>().trim().to_string();
     let path = link
         .value()
@@ -132,7 +132,7 @@ fn parse_size(elt: &ElementRef) -> Result<bytesize::ByteSize, IndexerError> {
     })
 }
 
-fn parse_list_row<'a>(base_url: &str, elt: ElementRef<'a>) -> Result<IndexerEntry, IndexerError> {
+fn parse_list_row(base_url: &str, elt: ElementRef) -> Result<IndexerEntry, IndexerError> {
     let (name, link) = parse_link(&elt)?;
     let seeders = parse_seeders(&elt)?;
     let leechers = parse_leechers(&elt)?;

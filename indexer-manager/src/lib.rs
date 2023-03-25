@@ -27,8 +27,8 @@ impl Default for IndexerManagerInner {
     fn default() -> Self {
         Self {
             indexers: vec![
-                Box::new(i1337x::Indexer1337x::default()),
-                Box::new(bitsearch::IndexerBitsearch::default()),
+                Box::<i1337x::Indexer1337x>::default(),
+                Box::<bitsearch::IndexerBitsearch>::default(),
             ],
         }
     }
