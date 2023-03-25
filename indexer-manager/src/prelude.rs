@@ -1,6 +1,6 @@
 use bytesize::ByteSize;
 use chrono::{DateTime, Utc};
-use std::num::ParseIntError;
+use std::{num::ParseIntError, str::FromStr};
 use url::ParseError;
 
 #[derive(Clone, Copy, Debug)]
@@ -21,6 +21,15 @@ impl Category {
             Self::Book => 7000,
         }
     }
+
+    pub fn kind_str(&self) -> &'static str {
+        match self {
+            Self::Audio | Self::Music => "3000",
+            Self::Movie => "2000",
+            Self::Tv => "5000",
+            Self::Book => "7000",
+        }
+    }
 }
 
 impl TryFrom<u32> for Category {
@@ -33,6 +42,20 @@ impl TryFrom<u32> for Category {
             5000 => Ok(Self::Tv),
             7000 => Ok(Self::Book),
             _ => Err(format!("invalid category {value}")),
+        }
+    }
+}
+
+impl FromStr for Category {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "2000" => Ok(Self::Movie),
+            "3000" => Ok(Self::Audio),
+            "5000" => Ok(Self::Tv),
+            "7000" => Ok(Self::Book),
+            _ => Err(format!("invalid category {s:?}")),
         }
     }
 }
@@ -153,4 +176,14 @@ pub struct IndexerEntry {
     pub leechers: u32,
     pub magnet: String,
     pub origin: &'static str,
+}
+
+impl IndexerEntry {
+    pub fn date_str(&self) -> String {
+        self.date.to_rfc2822()
+    }
+
+    pub fn size_str(&self) -> String {
+        self.size.as_u64().to_string()
+    }
 }
