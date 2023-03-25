@@ -185,8 +185,8 @@ mod integration_tests {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use chrono::Utc;
-    use manteau_indexer_manager::bytesize;
     use manteau_indexer_manager::IndexerManager;
+    use manteau_indexer_prelude::bytesize;
     use manteau_indexer_prelude::{Category, IndexerEntry, IndexerResult};
     use std::sync::Arc;
     use tower::ServiceExt;
