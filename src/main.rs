@@ -7,7 +7,7 @@ fn init_logs() {
     let _ = tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "grouped_purchase=debug,tower_http=debug".into()),
+                .unwrap_or_else(|_| "manteau=debug,tower_http=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer().with_ansi(cfg!(debug_assertions)))
         .try_init();
@@ -29,10 +29,12 @@ fn address() -> std::net::SocketAddr {
 async fn main() {
     init_logs();
 
-    let app = axum::Router::new().route(
-        "/api/torznab",
-        axum::routing::get(handler::api::torznab::handler),
-    );
+    let app = axum::Router::new()
+        .route(
+            "/api/torznab",
+            axum::routing::get(handler::api::torznab::handler),
+        )
+        .layer(tower_http::trace::TraceLayer::new_for_http());
 
     let addr = address();
     tracing::debug!("listening on {}", addr);
