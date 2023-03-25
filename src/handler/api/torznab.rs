@@ -3,6 +3,7 @@ use axum::response::IntoResponse;
 use axum::Extension;
 use manteau_indexer_manager::prelude::{Category, IndexerEntry};
 use manteau_indexer_manager::IndexerManager;
+use quick_xml::events::BytesText;
 use std::borrow::Cow;
 
 fn deserialize_category<'de, D>(deserializer: D) -> Result<Category, D::Error>
@@ -98,63 +99,107 @@ fn write_date(date: chrono::NaiveDate) -> String {
     result.to_rfc2822()
 }
 
-fn write_item(result: &mut String, item: IndexerEntry, category: Category) {
-    result.push_str("<item>");
-    result.push_str(&format!("<title>{}</title>", item.name));
-    result.push_str(&format!("<guid>{}</guid>", item.url));
-    result.push_str("<type>public</type>");
-    result.push_str(&format!("<comments>{}</comments>", item.url));
-    result.push_str(&format!("<pubDate>{}</pubDate>", write_date(item.date)));
-    result.push_str(&format!("<size>{}</size>", item.size.as_u64()));
-    result.push_str("<description />");
-    result.push_str(&format!("<category>{}</category>", category.kind()));
-    result.push_str(r#"<torznab:attr name="genre" value="" />"#);
-    result.push_str(r#"<torznab:attr name="downloadvolumefactor" value="0" />"#);
-    result.push_str(r#"<torznab:attr name="uploadvolumefactor" value="1" />"#);
-    result.push_str(&format!(
-        "<torznab:attr name=\"magneturl\" value={:?} />",
-        item.magnet
-    ));
-    result.push_str(&format!(
-        "<torznab:attr name=\"category\" value=\"{}\" />",
-        category.kind()
-    ));
-    result.push_str(&format!(
-        "<torznab:attr name=\"seeders\" value=\"{}\" />",
-        item.seeders
-    ));
-    result.push_str(&format!(
-        "<torznab:attr name=\"peers\" value=\"{}\" />",
-        item.leechers
-    ));
-    result.push_str("</item>");
+fn write_item(
+    writer: &mut quick_xml::writer::Writer<Vec<u8>>,
+    item: IndexerEntry,
+    category: Category,
+) -> quick_xml::Result<()> {
+    writer.create_element("item").write_inner_content(|w| {
+        w.create_element("title")
+            .write_text_content(BytesText::new(&item.name))?;
+        w.create_element("guid")
+            .write_text_content(BytesText::new(&item.url))?;
+        w.create_element("type")
+            .write_text_content(BytesText::new("public"))?;
+        w.create_element("comments")
+            .write_text_content(BytesText::new(&item.url))?;
+        w.create_element("pubDate")
+            .write_text_content(BytesText::new(&write_date(item.date)))?;
+        w.create_element("size")
+            .write_text_content(BytesText::new(&item.size.as_u64().to_string()))?;
+        w.create_element("description").write_empty()?;
+        w.create_element("category")
+            .write_text_content(BytesText::new(&category.kind().to_string()))?;
+        w.create_element("torznab:attr")
+            .with_attribute(("name", "genre"))
+            .with_attribute(("value", ""))
+            .write_empty()?;
+        w.create_element("torznab:attr")
+            .with_attribute(("name", "downloadvolumefactor"))
+            .with_attribute(("value", "0"))
+            .write_empty()?;
+        w.create_element("torznab:attr")
+            .with_attribute(("name", "uploadvolumefactor"))
+            .with_attribute(("value", "1"))
+            .write_empty()?;
+        w.create_element("torznab:attr")
+            .with_attribute(("name", "magneturl"))
+            .with_attribute(("value", item.magnet.as_str()))
+            .write_empty()?;
+        w.create_element("torznab:attr")
+            .with_attribute(("name", "category"))
+            .with_attribute(("value", category.kind().to_string().as_str()))
+            .write_empty()?;
+        w.create_element("torznab:attr")
+            .with_attribute(("name", "seeders"))
+            .with_attribute(("value", item.seeders.to_string().as_str()))
+            .write_empty()?;
+        w.create_element("torznab:attr")
+            .with_attribute(("name", "peers"))
+            .with_attribute(("value", item.leechers.to_string().as_str()))
+            .write_empty()?;
+        Ok(())
+    })?;
+    Ok(())
 }
 
 fn write_response(category: Category, entries: Vec<IndexerEntry>) -> ApplicationRssXml {
-    let mut result = String::from(r#"<?xml version="1.0" encoding="UTF-8"?>"#);
-    result.push_str(r#"<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:torznab="http://torznab.com/schemas/2015/feed">"#);
-    result.push_str("<channel>");
-    result.push_str(
-        r#"<atom:link href="http://manteau:3000/" rel="self" type="application/rss+xml" />"#,
-    );
-    result.push_str(r#"<title>Manteau</title>"#);
-    result.push_str(
-        r#"<description>Manteau is an aggregator for torrent search engines.</description>"#,
-    );
-    result.push_str(r#"<link>http://manteau:3000/</link>"#);
-    result.push_str(r#"<language>en-US</language>"#);
-    result.push_str(r#"<category>search</category>"#);
-    for item in entries {
-        write_item(&mut result, item, category);
-    }
-    result.push_str("</channel>");
-    result.push_str("</rss>");
+    let mut writer = quick_xml::writer::Writer::new(Vec::new());
+    writer
+        .create_element("rss")
+        .with_attribute(("version", "2.0"))
+        .with_attribute(("xmlns:atom", "http://www.w3.org/2005/Atom"))
+        .write_inner_content(|w| {
+            w.create_element("channel").write_inner_content(|w| {
+                w.create_element("atom:link")
+                    .with_attribute(("href", "http://manteau:3000/"))
+                    .with_attribute(("rel", "self"))
+                    .with_attribute(("type", "application/rss+xml"))
+                    .write_empty()?;
+                w.create_element("title")
+                    .write_text_content(BytesText::new("Manteau"))?;
+                w.create_element("description")
+                    .write_text_content(BytesText::new(
+                        "Manteau is an aggregator for torrent search engines.",
+                    ))?;
+                w.create_element("link")
+                    .write_text_content(BytesText::new("http://manteau:3000/"))?;
+                w.create_element("language")
+                    .write_text_content(BytesText::new("en-US"))?;
+                w.create_element("category")
+                    .write_text_content(BytesText::new("search"))?;
+
+                for item in entries {
+                    write_item(w, item, category)?;
+                }
+
+                Ok(())
+            })?;
+            Ok(())
+        })
+        .unwrap();
+    let inner = writer.into_inner();
+    let result = String::from_utf8_lossy(&inner);
+    let result = format!("{}{result}", crate::entity::torznab::DOM);
     ApplicationRssXml(Cow::Owned(result))
 }
 
 async fn handle_feed(indexer: IndexerManager, category: Category) -> ApplicationRssXml {
-    let entries = indexer.feed(category).await.entries;
-    write_response(category, entries)
+    let result = indexer.feed(category).await;
+    if !result.errors.is_empty() {
+        tracing::debug!("had the following errors: {:?}", result.errors);
+    }
+    write_response(category, result.entries)
 }
 
 async fn handle_search(
@@ -163,8 +208,11 @@ async fn handle_search(
     query: &str,
 ) -> ApplicationRssXml {
     // TODO handle category in search
-    let entries = indexer.search(query).await.entries;
-    write_response(category, entries)
+    let result = indexer.search(query).await;
+    if !result.errors.is_empty() {
+        tracing::debug!("had the following errors: {:?}", result.errors);
+    }
+    write_response(category, result.entries)
 }
 
 pub async fn handler(
