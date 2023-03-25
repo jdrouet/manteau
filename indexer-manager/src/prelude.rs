@@ -1,4 +1,7 @@
+use std::num::ParseIntError;
+
 use bytesize::ByteSize;
+use url::ParseError;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Category {
@@ -34,12 +37,11 @@ impl TryFrom<u32> for Category {
     }
 }
 
-// #[async_trait::async_trait(?Send)]
-// pub trait Indexer: std::fmt::Debug {
-//     fn name(&self) -> &'static str;
-//     async fn search(&self, query: &str) -> SearchResult;
-//     async fn feed(&self, category: Category) -> SearchResult;
-// }
+#[async_trait::async_trait]
+pub trait Indexer: std::fmt::Debug {
+    async fn search(&self, query: &str) -> IndexerResult;
+    async fn feed(&self, category: Category) -> IndexerResult;
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct IndexerResult {
@@ -66,26 +68,29 @@ impl IndexerResult {
 
 #[derive(Clone, Debug)]
 pub struct IndexerError {
-    origin: &'static str,
-    message: String,
-    // cause: Option<Box<dyn std::error::Error + Sync + Send + 'static>>,
+    pub origin: &'static str,
+    pub reason: IndexerErrorReason,
+}
+
+#[derive(Clone, Debug)]
+pub enum IndexerErrorReason {
+    EntryNameNotFound,
+    EntryLinkNotFound,
+    EntrySizeNotFound,
+    EntrySizeInvalid { cause: String },
+    EntrySeedersNotFound,
+    EntrySeedersInvalid { cause: ParseIntError },
+    EntryLeechersNotFound,
+    EntryLeechersInvalid { cause: ParseIntError },
+    EntryMagnetNotFound,
+    UnableToQuery { url: String, cause: String },
+    UnableToRead { url: String, cause: String },
+    UnableToBuildUrl { cause: ParseError },
 }
 
 impl IndexerError {
-    pub fn new(origin: &'static str, message: String) -> Self {
-        Self {
-            origin,
-            message,
-            // cause: None,
-        }
-    }
-
-    pub fn with_cause(
-        mut self,
-        _cause: Box<dyn std::error::Error + Sync + Send + 'static>,
-    ) -> Self {
-        // self.cause = Some(cause);
-        self
+    pub fn new(origin: &'static str, reason: IndexerErrorReason) -> Self {
+        Self { origin, reason }
     }
 }
 

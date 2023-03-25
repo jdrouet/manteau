@@ -1,8 +1,8 @@
-use crate::service::indexer::prelude::{Category, IndexerEntry};
-use crate::service::indexer::IndexerManager;
 use axum::extract::Query;
 use axum::response::IntoResponse;
 use axum::Extension;
+use manteau_indexer_manager::prelude::{Category, IndexerEntry};
+use manteau_indexer_manager::IndexerManager;
 use std::borrow::Cow;
 
 pub struct ApplicationRssXml(Cow<'static, str>);

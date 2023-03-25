@@ -3,6 +3,10 @@ FROM --platform=$BUILDPLATFORM rust:1-alpine AS vendor
 
 ENV USER=root
 
+WORKDIR /code/indexer-manager
+RUN cargo init
+COPY indexer-manager/Cargo.toml /code/indexer-manager/Cargo.toml
+
 WORKDIR /code
 RUN cargo init
 COPY Cargo.toml /code/Cargo.toml
@@ -20,12 +24,19 @@ RUN apk add --no-cache musl-dev
 
 ENV USER=root
 
+WORKDIR /code/indexer-manager
+RUN cargo init
+COPY indexer-manager/Cargo.toml /code/indexer-manager/Cargo.toml
+
 WORKDIR /code
 RUN cargo init
-COPY Cargo.lock Cargo.toml /code/
+COPY Cargo.toml /code/Cargo.toml
+COPY Cargo.lock /code/Cargo.lock
+
 COPY --from=vendor /code/.cargo /code/.cargo
 COPY --from=vendor /code/vendor /code/vendor
 
+COPY indexer-manager/src /code/indexer-manager/src
 COPY src /code/src
 RUN cargo build --release --offline
 

@@ -603,21 +603,34 @@ checksum = "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4"
 name = "manteau"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "axum",
- "bytesize",
- "futures",
+ "manteau-indexer-manager",
  "mockito",
  "once_cell",
  "quick-xml",
  "reqwest",
- "scraper",
  "serde",
  "serde_json",
  "tokio",
  "tower-http",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "manteau-indexer-manager"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytesize",
+ "futures",
+ "mockito",
+ "once_cell",
+ "reqwest",
+ "scraper",
+ "serde_json",
+ "tokio",
+ "tracing",
  "url",
  "urlencoding",
 ]
