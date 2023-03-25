@@ -64,18 +64,35 @@ pub enum QueryParams {
         #[serde(default = "String::new")]
         q: String,
     },
+    #[serde(rename = "tvsearch")]
+    TvSearch {
+        #[serde(deserialize_with = "deserialize_category")]
+        cat: Category,
+        q: Option<String>,
+        #[serde(default)]
+        season: Option<String>,
+        #[serde(default)]
+        ep: Option<String>,
+    },
 }
 
 impl QueryParams {
-    async fn handle(&self, indexer: Arc<IndexerManager>, torznab: Arc<TorznabBuilder>) -> String {
+    async fn handle(self, indexer: Arc<IndexerManager>, torznab: Arc<TorznabBuilder>) -> String {
         match self {
             Self::Caps => torznab.capabilities(),
             Self::Music => handle_feed(indexer, torznab, Category::Music).await,
             Self::Search { cat, q } => {
                 if q.is_empty() {
-                    handle_feed(indexer, torznab, *cat).await
+                    handle_feed(indexer, torznab, cat).await
                 } else {
-                    handle_search(indexer, torznab, *cat, q).await
+                    handle_search(indexer, torznab, cat, q).await
+                }
+            }
+            Self::TvSearch { cat, q, season, ep } => {
+                if let Some(query) = q {
+                    handle_tv_search(indexer, torznab, cat, query, season, ep).await
+                } else {
+                    handle_feed(indexer, torznab, cat).await
                 }
             }
         }
@@ -94,14 +111,42 @@ async fn handle_feed(
     torznab.feed(category, &result.entries)
 }
 
+fn format_number(input: String) -> String {
+    if input.len() == 1 {
+        format!("0{input}")
+    } else {
+        input
+    }
+}
+
+async fn handle_tv_search(
+    indexer: Arc<IndexerManager>,
+    torznab: Arc<TorznabBuilder>,
+    category: Category,
+    query: String,
+    season: Option<String>,
+    episode: Option<String>,
+) -> String {
+    // TODO handle category in search
+    let query = match (season, episode) {
+        (Some(s), Some(e)) => format!("{query} S{}E{}", format_number(s), format_number(e)),
+        _ => query,
+    };
+    let result = indexer.search(&query).await;
+    if !result.errors.is_empty() {
+        tracing::debug!("had the following errors: {:?}", result.errors);
+    }
+    torznab.feed(category, &result.entries)
+}
+
 async fn handle_search(
     indexer: Arc<IndexerManager>,
     torznab: Arc<TorznabBuilder>,
     category: Category,
-    query: &str,
+    query: String,
 ) -> String {
     // TODO handle category in search
-    let result = indexer.search(query).await;
+    let result = indexer.search(query.as_str()).await;
     if !result.errors.is_empty() {
         tracing::debug!("had the following errors: {:?}", result.errors);
     }
