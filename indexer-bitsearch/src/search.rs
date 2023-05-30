@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use manteau_indexer_helper::numeric::Number;
 use manteau_indexer_prelude::{IndexerEntry, IndexerError, IndexerErrorReason, IndexerResult};
 use once_cell::sync::Lazy;
 use scraper::{ElementRef, Html, Selector};
@@ -47,26 +48,22 @@ fn parse_size(elt: &ElementRef) -> Result<bytesize::ByteSize, IndexerError> {
         .select(&SEARCH_ROW_SIZE_SELECTOR)
         .next()
         .ok_or_else(|| IndexerError::new(super::NAME, IndexerErrorReason::EntryLinkNotFound))?;
-    value
-        .text()
-        .collect::<String>()
-        .trim()
-        .parse::<bytesize::ByteSize>()
-        .map_err(|cause| {
-            IndexerError::new(super::NAME, IndexerErrorReason::EntrySizeInvalid { cause })
-        })
+    let value = value.text().collect::<String>();
+    value.trim().parse::<bytesize::ByteSize>().map_err(|cause| {
+        IndexerError::new(super::NAME, IndexerErrorReason::EntrySizeInvalid { cause })
+    })
 }
 
-fn parse_seeders(elt: &ElementRef) -> Result<u32, IndexerError> {
+fn parse_seeders(elt: &ElementRef) -> Result<usize, IndexerError> {
     let value = elt
         .select(&SEARCH_ROW_SEEDER_SELECTOR)
         .next()
         .ok_or_else(|| IndexerError::new(super::NAME, IndexerErrorReason::EntrySeedersNotFound))?;
+    let value = value.text().collect::<String>();
     value
-        .text()
-        .collect::<String>()
         .trim()
-        .parse::<u32>()
+        .parse::<Number>()
+        .map(|num| num.as_value())
         .map_err(|cause| {
             IndexerError::new(
                 super::NAME,
@@ -75,16 +72,16 @@ fn parse_seeders(elt: &ElementRef) -> Result<u32, IndexerError> {
         })
 }
 
-fn parse_leechers(elt: &ElementRef) -> Result<u32, IndexerError> {
+fn parse_leechers(elt: &ElementRef) -> Result<usize, IndexerError> {
     let value = elt
         .select(&SEARCH_ROW_LEECHER_SELECTOR)
         .next()
         .ok_or_else(|| IndexerError::new(super::NAME, IndexerErrorReason::EntryLeechersNotFound))?;
+    let value = value.text().collect::<String>();
     value
-        .text()
-        .collect::<String>()
         .trim()
-        .parse::<u32>()
+        .parse::<Number>()
+        .map(|num| num.as_value())
         .map_err(|cause| {
             IndexerError::new(
                 super::NAME,

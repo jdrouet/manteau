@@ -9,8 +9,8 @@ pub(crate) struct Entry {
     info_hash: String,
     // category: u16,
     name: String,
-    leechers: u32,
-    seeders: u32,
+    leechers: usize,
+    seeders: usize,
     added: i64,
     size: u64,
 }

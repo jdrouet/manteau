@@ -1,5 +1,6 @@
 use super::NAME;
 use chrono::{DateTime, Utc};
+use manteau_indexer_helper::numeric::Number;
 use manteau_indexer_prelude::{IndexerEntry, IndexerError, IndexerErrorReason, IndexerResult};
 use once_cell::sync::Lazy;
 use scraper::{ElementRef, Html, Selector};
@@ -29,7 +30,7 @@ fn parse_link<'a>(elt: &'a ElementRef) -> Result<(String, &'a str), IndexerError
     Ok((name, path))
 }
 
-fn parse_seeders(elt: &ElementRef) -> Result<u32, IndexerError> {
+fn parse_seeders(elt: &ElementRef) -> Result<usize, IndexerError> {
     let value = elt
         .select(&SEEDS_SELECTOR)
         .next()
@@ -37,11 +38,12 @@ fn parse_seeders(elt: &ElementRef) -> Result<u32, IndexerError> {
     value
         .text()
         .collect::<String>()
-        .parse::<u32>()
+        .parse::<Number>()
+        .map(|num| num.as_value())
         .map_err(|cause| IndexerError::new(NAME, IndexerErrorReason::EntrySeedersInvalid { cause }))
 }
 
-fn parse_leechers(elt: &ElementRef) -> Result<u32, IndexerError> {
+fn parse_leechers(elt: &ElementRef) -> Result<usize, IndexerError> {
     let value = elt
         .select(&LEECHERS_SELECTOR)
         .next()
@@ -49,7 +51,8 @@ fn parse_leechers(elt: &ElementRef) -> Result<u32, IndexerError> {
     value
         .text()
         .collect::<String>()
-        .parse::<u32>()
+        .parse::<Number>()
+        .map(|num| num.as_value())
         .map_err(|cause| {
             IndexerError::new(NAME, IndexerErrorReason::EntryLeechersInvalid { cause })
         })

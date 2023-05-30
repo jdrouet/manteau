@@ -6,6 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+manteau-indexer-helper = { path = "../indexer-helper" }
+
 async-trait = { version = "0.1" }
 bytesize = { version = "1.2" }
 chrono = { version = "0.4", default-features = false, features = [

@@ -2,7 +2,8 @@ pub use bytesize;
 
 use bytesize::ByteSize;
 use chrono::{DateTime, Utc};
-use std::{num::ParseIntError, str::FromStr};
+use manteau_indexer_helper::numeric::ParseNumberError;
+use std::str::FromStr;
 use url::ParseError;
 
 #[derive(Clone, Copy, Debug)]
@@ -129,11 +130,11 @@ pub enum IndexerErrorReason {
     },
     EntrySeedersNotFound,
     EntrySeedersInvalid {
-        cause: ParseIntError,
+        cause: ParseNumberError,
     },
     EntryLeechersNotFound,
     EntryLeechersInvalid {
-        cause: ParseIntError,
+        cause: ParseNumberError,
     },
     EntryDateNotFound,
     EntryDateInvalid {
@@ -177,8 +178,8 @@ pub struct IndexerEntry {
     pub url: String,
     pub date: DateTime<Utc>,
     pub size: ByteSize,
-    pub seeders: u32,
-    pub leechers: u32,
+    pub seeders: usize,
+    pub leechers: usize,
     pub magnet: String,
     pub origin: &'static str,
 }

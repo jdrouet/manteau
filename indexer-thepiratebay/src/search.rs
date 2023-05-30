@@ -1,6 +1,8 @@
 use bytesize::ByteSize;
 use chrono::format::ParseErrorKind;
 use chrono::{DateTime, Utc};
+
+use manteau_indexer_helper::numeric::Number;
 use manteau_indexer_prelude::{IndexerEntry, IndexerError, IndexerErrorReason, IndexerResult};
 use url::Url;
 
@@ -31,22 +33,28 @@ impl Entry {
         Ok(ByteSize::b(size))
     }
 
-    fn seeders(&self) -> Result<u32, IndexerError> {
-        self.seeders.parse::<u32>().map_err(|cause| {
-            IndexerError::new(
-                super::NAME,
-                IndexerErrorReason::EntrySeedersInvalid { cause },
-            )
-        })
+    fn seeders(&self) -> Result<usize, IndexerError> {
+        self.seeders
+            .parse::<Number>()
+            .map(|num| num.as_value())
+            .map_err(|cause| {
+                IndexerError::new(
+                    super::NAME,
+                    IndexerErrorReason::EntrySeedersInvalid { cause },
+                )
+            })
     }
 
-    fn leechers(&self) -> Result<u32, IndexerError> {
-        self.leechers.parse::<u32>().map_err(|cause| {
-            IndexerError::new(
-                super::NAME,
-                IndexerErrorReason::EntryLeechersInvalid { cause },
-            )
-        })
+    fn leechers(&self) -> Result<usize, IndexerError> {
+        self.leechers
+            .parse::<Number>()
+            .map(|num| num.as_value())
+            .map_err(|cause| {
+                IndexerError::new(
+                    super::NAME,
+                    IndexerErrorReason::EntryLeechersInvalid { cause },
+                )
+            })
     }
 
     fn url(&self, base_url: &str) -> String {

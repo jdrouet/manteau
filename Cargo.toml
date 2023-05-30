@@ -5,6 +5,7 @@ edition = "2021"
 
 [workspace]
 members = [
+    "./indexer-helper",
     "./indexer-manager",
     "./indexer-prelude",
     # indexers
