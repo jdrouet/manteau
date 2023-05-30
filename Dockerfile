@@ -11,6 +11,10 @@ WORKDIR /code/indexer-bitsearch
 RUN cargo init
 COPY indexer-bitsearch/Cargo.toml /code/indexer-bitsearch/Cargo.toml
 
+WORKDIR /code/indexer-helper
+RUN cargo init
+COPY indexer-helper/Cargo.toml /code/indexer-helper/Cargo.toml
+
 WORKDIR /code/indexer-thepiratebay
 RUN cargo init
 COPY indexer-thepiratebay/Cargo.toml /code/indexer-thepiratebay/Cargo.toml
@@ -47,6 +51,9 @@ COPY indexer-1337x/Cargo.toml /code/indexer-1337x/Cargo.toml
 
 COPY indexer-bitsearch/src /code/indexer-bitsearch/src
 COPY indexer-bitsearch/Cargo.toml /code/indexer-bitsearch/Cargo.toml
+
+COPY indexer-helper/src /code/indexer-helper/src
+COPY indexer-helper/Cargo.toml /code/indexer-helper/Cargo.toml
 
 COPY indexer-thepiratebay/src /code/indexer-thepiratebay/src
 COPY indexer-thepiratebay/Cargo.toml /code/indexer-thepiratebay/Cargo.toml
