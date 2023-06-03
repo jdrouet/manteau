@@ -4,6 +4,7 @@ use axum::response::IntoResponse;
 use axum::Extension;
 use manteau_indexer_manager::IndexerManager;
 use manteau_indexer_prelude::Category;
+use moka::future::Cache;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -168,12 +169,21 @@ async fn handle_search(
 }
 
 pub async fn handler(
+    Extension(cache): Extension<Arc<Cache<String, String>>>,
     Extension(indexer): Extension<Arc<IndexerManager>>,
     Extension(torznab): Extension<Arc<TorznabBuilder>>,
     Query(params): Query<QueryParams>,
 ) -> ApplicationRssXml {
     tracing::debug!("GET /api/torznab params={params:?}");
-    ApplicationRssXml(params.handle(indexer, torznab).await)
+    let key = format!("{params:?}");
+    if let Some(found) = cache.get(&key) {
+        tracing::debug!("found in cache");
+        ApplicationRssXml(found)
+    } else {
+        let result = params.handle(indexer, torznab).await;
+        cache.insert(key, result.clone()).await;
+        ApplicationRssXml(result)
+    }
 }
 
 #[cfg(test)]
@@ -184,6 +194,7 @@ mod tests {
     #[tokio::test]
     async fn success() {
         let res = handler(
+            Extension(crate::service::cache::build()),
             Extension(Default::default()),
             Extension(Default::default()),
             Query(QueryParams::Caps),
@@ -227,7 +238,11 @@ mod integration_tests {
 
         let indexer = IndexerManager::with_indexer(MockIndexer::default());
         let torznab = TorznabBuilder::default();
-        let app = crate::router(Arc::new(indexer), Arc::new(torznab));
+        let app = crate::router(
+            crate::service::cache::build(),
+            Arc::new(indexer),
+            Arc::new(torznab),
+        );
 
         let response = app
             .oneshot(
@@ -265,7 +280,11 @@ mod integration_tests {
 
         let indexer = IndexerManager::with_indexer(mock);
         let torznab = TorznabBuilder::default();
-        let app = crate::router(Arc::new(indexer), Arc::new(torznab));
+        let app = crate::router(
+            crate::service::cache::build(),
+            Arc::new(indexer),
+            Arc::new(torznab),
+        );
 
         let response = app
             .oneshot(
@@ -297,7 +316,11 @@ mod integration_tests {
 
         let indexer = IndexerManager::with_indexer(MockIndexer::default());
         let torznab = TorznabBuilder::default();
-        let app = crate::router(Arc::new(indexer), Arc::new(torznab));
+        let app = crate::router(
+            crate::service::cache::build(),
+            Arc::new(indexer),
+            Arc::new(torznab),
+        );
 
         let response = app
             .oneshot(

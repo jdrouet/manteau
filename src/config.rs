@@ -6,6 +6,8 @@ pub struct Config {
     pub indexers: IndexerManagerConfig,
     #[serde(default)]
     pub torznab: crate::service::torznab::TorznabConfig,
+    #[serde(default)]
+    pub cache: crate::service::cache::CacheConfig,
 }
 
 impl Config {

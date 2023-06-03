@@ -30,12 +30,14 @@ fn address() -> std::net::SocketAddr {
 }
 
 fn router(
+    cache: Arc<crate::service::cache::Cache<String, String>>,
     indexer: Arc<manteau_indexer_manager::IndexerManager>,
     torznab: Arc<crate::service::torznab::TorznabBuilder>,
 ) -> Router {
     Router::new()
         .route("/api/torznab", routing::get(handler::api::torznab::handler))
         .layer(tower_http::trace::TraceLayer::new_for_http())
+        .layer(Extension(cache))
         .layer(Extension(indexer))
         .layer(Extension(torznab))
 }
@@ -45,10 +47,11 @@ async fn main() {
     init_logs();
 
     let config = crate::config::Config::from_env().expect("couldn't load configuration");
+    let cache = Arc::new(config.cache.build());
     let indexer = Arc::new(config.indexers.build());
     let torznab = Arc::new(config.torznab.build());
 
-    let app = router(indexer, torznab);
+    let app = router(cache, indexer, torznab);
 
     let addr = address();
     tracing::debug!("listening on {}", addr);
