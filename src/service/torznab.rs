@@ -272,7 +272,7 @@ impl TorznabBuilder {
                 .write_empty()?;
             w.create_element("torznab:attr")
                 .with_attribute(("name", "peers"))
-                .with_attribute(("value", item.leechers.to_string().as_str()))
+                .with_attribute(("value", (item.leechers + item.seeders).to_string().as_str()))
                 .write_empty()?;
             Ok(())
         })?;
